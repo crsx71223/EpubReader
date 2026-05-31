@@ -1,30 +1,158 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { Button, StyleSheet, Text, View } from "react-native";
+import {
+  FlatList,
+  Pressable,
+  StyleSheet,
+  TextInput,
+  useColorScheme,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+
+import { BookCard } from "@/components/BookCard";
+import { Colors, Spacing } from "@/constants/theme";
+
+const DUMMY_BOOKS = [
+  {
+    id: "1",
+    title: "Leviathan Wakes",
+    author: "James S.A. Corey",
+    cover: "https://picsum.photos/seed/leviathan/200/300",
+  },
+  {
+    id: "2",
+    title: "Calibans War",
+    author: "James S.A. Corey",
+    cover: "https://picsum.photos/seed/caliban/200/300",
+  },
+  {
+    id: "3",
+    title: "Abaddon's Gate",
+    author: "James S.A. Corey",
+    cover: "https://picsum.photos/seed/abaddon/200/300",
+  },
+  {
+    id: "4",
+    title: "Cibola Burn",
+    author: "James S.A. Corey",
+    cover: "https://picsum.photos/seed/cibola/200/300",
+  },
+  {
+    id: "5",
+    title: "Nemesis Games",
+    author: "James S.A. Corey",
+    cover: "https://picsum.photos/seed/nemesis/200/300",
+  },
+  {
+    id: "6",
+    title: "Babylon's Ashes",
+    author: "James S.A. Corey",
+    cover: "https://picsum.photos/seed/babylon/200/300",
+  },
+  {
+    id: "7",
+    title: "Persepolis Rising",
+    author: "James S.A. Corey",
+    cover: "https://picsum.photos/seed/persepolis/200/300",
+  },
+  {
+    id: "8",
+    title: "Tiamat's Wrath",
+    author: "James S.A. Corey",
+    cover: "https://picsum.photos/seed/tiamat/200/300",
+  },
+  {
+    id: "9",
+    title: "Leviathan Falls",
+    author: "James S.A. Corey",
+    cover: "https://picsum.photos/seed/leviathan/200/300",
+  },
+];
 
 export default function LibraryScreen() {
   const router = useRouter();
+  const theme = useColorScheme() === "dark" ? "dark" : "light";
+  const colors = Colors[theme];
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Library Screen</Text>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+    >
+      {/* Search Header */}
+      <View style={styles.header}>
+        <Pressable
+          onPress={() => router.push("/menu")}
+          style={styles.menuButton}
+        >
+          <Ionicons name="menu" size={24} color={colors.text} />
+        </Pressable>
 
-      <Button title="Open Reader" onPress={() => router.push("/reader")} />
-      <Button title="Open Settings" onPress={() => router.push("/settings")} />
-      <Button title="Open Menu" onPress={() => router.push("/menu")} />
-    </View>
+        <View
+          style={[
+            styles.searchContainer,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+          ]}
+        >
+          <Ionicons name="search" size={20} color={colors.textSecondary} />
+          <TextInput
+            style={[styles.searchInput, { color: colors.text }]}
+            placeholder="Search books..."
+            placeholderTextColor={colors.textSecondary}
+          />
+        </View>
+      </View>
+
+      {/* Book List */}
+      <FlatList
+        data={DUMMY_BOOKS}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.listContent}
+        renderItem={({ item }) => (
+          <BookCard
+            id={item.id}
+            title={item.title}
+            author={item.author}
+            cover={item.cover}
+            onPress={() => router.push(`/reader?id=${item.id}`)}
+          />
+        )}
+      />
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 16,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 20,
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.four,
+    paddingVertical: Spacing.three,
+    gap: Spacing.three,
+  },
+  menuButton: {
+    padding: Spacing.two,
+    marginLeft: -Spacing.two,
+  },
+  searchContainer: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.three,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: Spacing.two,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+  },
+  listContent: {
+    padding: Spacing.four,
+    paddingBottom: Spacing.six,
   },
 });

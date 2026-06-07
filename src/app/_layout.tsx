@@ -4,18 +4,31 @@ export default function RootLayout() {
   return (
     <Stack>
       {/* Library */}
-      <Stack.Screen name="index" options={{ headerShown: false }} />
+      <Stack.Screen
+        name="index"
+        options={{ headerShown: false, animation: "none" }}
+      />
 
       {/* Reader */}
-      <Stack.Screen name="reader" options={{ title: "Reader" }} />
+      <Stack.Screen
+        name="reader"
+        options={{ title: "Reader", animation: "none" }}
+      />
 
       {/* Settings */}
-      <Stack.Screen name="settings" options={{ title: "Settings" }} />
+      <Stack.Screen
+        name="settings"
+        options={{ title: "Settings", animation: "none" }}
+      />
 
       {/* Menu */}
       <Stack.Screen
         name="menu"
-        options={{ presentation: "modal", title: "Menu" }}
+        options={{
+          presentation: "modal",
+          title: "Menu",
+          animation: "slide_from_bottom",
+        }}
       />
     </Stack>
   );

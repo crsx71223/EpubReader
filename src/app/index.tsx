@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { useState } from "react";
 import {
   FlatList,
   Pressable,
@@ -12,8 +13,17 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BookCard } from "@/components/BookCard";
 import { Colors, Spacing } from "@/constants/theme";
+import { pickAndSaveEpub } from "@/utils/fileSystem";
 
-const DUMMY_BOOKS = [
+interface Book {
+  id: string;
+  title: string;
+  author: string;
+  cover: string;
+  uri?: string; // Optional for now, but will be used for actual file paths later
+}
+
+const DUMMY_BOOKS: Book[] = [
   {
     id: "1",
     title: "Leviathan Wakes",
@@ -75,6 +85,17 @@ export default function LibraryScreen() {
   const theme = useColorScheme() === "dark" ? "dark" : "light";
   const colors = Colors[theme];
 
+  // Initialize state with dummy books so the screen isn't empty
+  const [books, setBooks] = useState<Book[]>(DUMMY_BOOKS);
+
+  const handleAddBook = async () => {
+    const newBook = await pickAndSaveEpub();
+    if (newBook) {
+      // Prepend the new book to the array so it shows up at the top
+      setBooks((prevBooks) => [newBook, ...prevBooks]);
+    }
+  };
+
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
@@ -101,11 +122,16 @@ export default function LibraryScreen() {
             placeholderTextColor={colors.textSecondary}
           />
         </View>
+
+        {/* Add Book Button */}
+        <Pressable onPress={handleAddBook} style={styles.menuButton}>
+          <Ionicons name="add" size={28} color={colors.text} />
+        </Pressable>
       </View>
 
       {/* Book List */}
       <FlatList
-        data={DUMMY_BOOKS}
+        data={books}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
         renderItem={({ item }) => (

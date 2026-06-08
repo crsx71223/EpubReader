@@ -23,6 +23,7 @@ export const useBookStore = create<BookStore>((set) => ({
       const files = await getLibraryFiles();
       set({ books: files, isLoading: false });
     } catch (error) {
+      console.error("Failed to load books into store:", error);
       set({ books: [], isLoading: false });
     }
   },

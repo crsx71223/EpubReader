@@ -15,7 +15,7 @@ export default function LibraryScreen() {
 
   useEffect(() => {
     loadBooks();
-  }, []);
+  }, [loadBooks]);
 
   if (isLoading) {
     return (

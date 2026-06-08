@@ -1,99 +1,37 @@
-import { Colors, Spacing } from "@/constants/theme";
-import { Image } from "expo-image";
-import {
-  Pressable,
-  StyleSheet,
-  Text,
-  useColorScheme,
-  View,
-} from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
-export interface BookCardProps {
-  id: string;
+interface BookCardProps {
   title: string;
-  author: string;
-  cover: string;
-  onPress: () => void;
+  uri: string;
 }
 
-export function BookCard({ title, author, cover, onPress }: BookCardProps) {
-  const theme = useColorScheme() === "dark" ? "dark" : "light";
-  const colors = Colors[theme];
-
+export default function BookCard({ title, uri }: BookCardProps) {
   return (
-    <Pressable
-      style={[styles.card, { backgroundColor: colors.surface }]}
-      onPress={onPress}
-    >
-      {/* Left: Cover Image */}
-      <View style={styles.imageShadow}>
-        <Image
-          source={{ uri: cover }}
-          style={[styles.coverImage, { backgroundColor: colors.border }]}
-          contentFit="cover"
-          transition={200}
-        />
-      </View>
-
-      {/* Right: Content Container */}
-      <View style={styles.contentContainer}>
-        <View style={styles.header}>
-          <Text
-            style={[styles.bookTitle, { color: colors.text }]}
-            numberOfLines={2}
-          >
-            {title}
-          </Text>
-          <Text
-            style={[styles.bookAuthor, { color: colors.textSecondary }]}
-            numberOfLines={1}
-          >
-            {author}
-          </Text>
-        </View>
-      </View>
-    </Pressable>
+    <View style={styles.bookCard}>
+      <Text style={styles.bookTitle}>{title}</Text>
+      <Text style={styles.bookPath} numberOfLines={1} ellipsizeMode="middle">
+        {uri}
+      </Text>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    flexDirection: "row",
-    width: "100%",
-    borderRadius: 16,
-    padding: Spacing.three,
-    marginBottom: Spacing.four,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  imageShadow: {
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  coverImage: {
-    width: 80,
-    height: 120,
+  bookCard: {
+    padding: 15,
+    backgroundColor: "#f9f9f9",
+    borderBottomWidth: 1,
+    borderColor: "#eee",
+    marginBottom: 10,
     borderRadius: 8,
   },
-  contentContainer: {
-    flex: 1,
-    marginLeft: Spacing.four,
-    justifyContent: "center",
-  },
-  header: {
-    gap: 4,
-  },
   bookTitle: {
-    fontSize: 17,
-    fontWeight: "600",
+    fontSize: 16,
+    fontWeight: "500",
   },
-  bookAuthor: {
-    fontSize: 14,
+  bookPath: {
+    fontSize: 12,
+    color: "gray",
+    marginTop: 4,
   },
 });

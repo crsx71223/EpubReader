@@ -1,50 +1,68 @@
-import * as DocumentPicker from "expo-document-picker";
-import { Directory, File, Paths } from "expo-file-system";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as FileSystem from "expo-file-system/legacy";
+import { Platform } from "react-native";
 
-// Define the permanent storage location
-const BOOKS_DIR = new Directory(Paths.document, "epubs");
+const ANDROID_FOLDER_KEY = "android_library_folder";
 
-export function ensureDirExists() {
-  // Folder existence checks and creation are now synchronous
-  if (!BOOKS_DIR.exists) {
-    BOOKS_DIR.create({ intermediates: true });
-  }
-}
-
-export async function pickAndSaveEpub() {
+export async function getLibraryFiles() {
   try {
-    // Open the device file picker looking for EPUBs
-    const result = await DocumentPicker.getDocumentAsync({
-      type: ["application/epub+zip", "application/epub"],
-      copyToCacheDirectory: true,
-    });
+    let targetDirectory = "";
 
-    // Handle cancellation
-    if (result.canceled) return null;
+    // iOS: Read the exposed document directory
+    if (Platform.OS === "ios") {
+      targetDirectory = FileSystem.documentDirectory || "";
+      if (!targetDirectory) return [];
+    }
 
-    const fileAsset = result.assets[0];
+    // Android: Storage Access Framework
+    else if (Platform.OS === "android") {
+      const savedUri = await AsyncStorage.getItem(ANDROID_FOLDER_KEY);
 
-    // Prepare the permanent storage directory
-    ensureDirExists();
+      if (savedUri) {
+        targetDirectory = savedUri;
+      } else {
+        const permissions =
+          await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
 
-    // Construct the permanent file reference
-    const filename = fileAsset.name || `book_${Date.now()}.epub`;
-    const destFile = new File(BOOKS_DIR, filename);
+        if (!permissions.granted) {
+          return [];
+        }
 
-    // Copy the file from the temporary cache to permanent storage
-    const sourceFile = new File(fileAsset.uri);
-    await sourceFile.copy(destFile);
+        targetDirectory = permissions.directoryUri;
+        await AsyncStorage.setItem(ANDROID_FOLDER_KEY, targetDirectory);
+      }
+    }
 
-    // Return a structured object representing the new book
-    return {
-      id: destFile.uri, // Using the unique path as the ID
-      title: fileAsset.name.replace(".epub", ""),
-      author: "Unknown Author", // Will be parsed from the EPUB metadata later
-      cover: "https://picsum.photos/200/300", // Placeholder cover
-      uri: destFile.uri,
-    };
+    // Read directory and filter EPUBs
+    let allFiles: string[] = [];
+
+    if (Platform.OS === "android") {
+      allFiles =
+        await FileSystem.StorageAccessFramework.readDirectoryAsync(
+          targetDirectory,
+        );
+    } else {
+      allFiles = await FileSystem.readDirectoryAsync(targetDirectory);
+    }
+
+    const epubs = allFiles
+      .filter((fileName) => fileName.endsWith(".epub"))
+      .map((fileUri) => {
+        const fullUri =
+          Platform.OS === "android" ? fileUri : targetDirectory + fileUri;
+        const titleMatch =
+          fileUri.split("/").pop()?.replace(".epub", "") || "Unknown Title";
+
+        return {
+          id: fullUri,
+          title: decodeURIComponent(titleMatch),
+          uri: fullUri,
+        };
+      });
+
+    return epubs;
   } catch (error) {
-    console.error("Failed to pick or save EPUB:", error);
-    return null;
+    console.error("Failed to read library directory:", error);
+    return [];
   }
 }

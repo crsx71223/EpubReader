@@ -10,12 +10,15 @@ interface Book {
 interface BookStore {
   books: Book[];
   isLoading: boolean;
+  currentBookUri: string | null;
   loadBooks: () => Promise<void>;
+  setCurrentBook: (uri: string | null) => void;
 }
 
 export const useBookStore = create<BookStore>((set) => ({
   books: [],
   isLoading: false,
+  currentBookUri: null,
 
   loadBooks: async () => {
     set({ isLoading: true });
@@ -27,4 +30,6 @@ export const useBookStore = create<BookStore>((set) => ({
       set({ books: [], isLoading: false });
     }
   },
+
+  setCurrentBook: (uri) => set({ currentBookUri: uri }),
 }));

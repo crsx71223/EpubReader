@@ -34,7 +34,7 @@ export const EPUB_HTML_TEMPLATE = `
       }
 
       window.addEventListener('message', renderBook);
-      document.addEventListener('message', renderBook); // Fallback for specific Android versions
+      document.addEventListener('message', renderBook);
 
       window.onload = function() {
         if (window.ReactNativeWebView) {

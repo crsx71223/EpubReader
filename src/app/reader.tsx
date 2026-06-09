@@ -9,7 +9,6 @@ import { useBookStore } from "../store/bookStore";
 export default function ReaderScreen() {
   const uri = useBookStore((state) => state.currentBookUri);
   const books = useBookStore((state) => state.books);
-
   const title = books.find((b) => b.uri === uri)?.title || "Reader";
 
   const [base64Book, setBase64Book] = useState<string | null>(null);
@@ -35,9 +34,7 @@ export default function ReaderScreen() {
   if (!uri) {
     return (
       <View style={styles.container}>
-        <Text style={{ textAlign: "center", marginTop: 50 }}>
-          No book selected.
-        </Text>
+        <Text style={styles.fallbackText}>No book selected.</Text>
       </View>
     );
   }
@@ -56,8 +53,12 @@ export default function ReaderScreen() {
           originWhitelist={["*"]}
           source={{ html: EPUB_HTML_TEMPLATE }}
           style={styles.webview}
-          onLoadEnd={() => {
-            webViewRef.current?.postMessage(base64Book);
+          javaScriptEnabled={true}
+          domStorageEnabled={true}
+          onMessage={(event) => {
+            if (event.nativeEvent.data === "READY" && base64Book) {
+              webViewRef.current?.postMessage(base64Book);
+            }
           }}
         />
       )}
@@ -69,4 +70,5 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
   webview: { flex: 1 },
+  fallbackText: { textAlign: "center", marginTop: 50, color: "gray" },
 });

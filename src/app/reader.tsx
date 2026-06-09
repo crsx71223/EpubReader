@@ -3,7 +3,7 @@ import { Stack, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, StyleSheet, View } from "react-native";
 import { WebView } from "react-native-webview";
-import { EPUB_HTML_TEMPLATE } from "TODO: Path to HTML template for rendering EPUB content";
+import { EPUB_HTML_TEMPLATE } from "../constants/epubTemplate";
 
 export default function ReaderScreen() {
   const { uri, title } = useLocalSearchParams<{ uri: string; title: string }>();

@@ -1,0 +1,847 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+.claude/settings.json
+.gitignore
+AGENTS.md
+app.json
+assets/expo.icon/Assets/expo-symbol 2.svg
+assets/expo.icon/Assets/grid.png
+assets/expo.icon/icon.json
+assets/images/android-icon-background.png
+assets/images/android-icon-foreground.png
+assets/images/android-icon-monochrome.png
+assets/images/expo-badge-white.png
+assets/images/expo-badge.png
+assets/images/expo-logo.png
+assets/images/favicon.png
+assets/images/icon.png
+assets/images/logo-glow.png
+assets/images/react-logo.png
+assets/images/react-logo@2x.png
+assets/images/react-logo@3x.png
+assets/images/splash-icon.png
+CLAUDE.md
+eas.json
+eslint.config.js
+LICENSE
+package.json
+README.md
+src/app/_layout.tsx
+src/app/index.tsx
+src/app/menu.tsx
+src/app/reader.tsx
+src/app/settings.tsx
+src/components/BookCard.tsx
+src/constants/theme.ts
+src/global.css
+src/store/bookStore.ts
+src/utils/fileSystem.ts
+tsconfig.json
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path=".claude/settings.json">
+{
+  "enabledPlugins": {
+    "expo@claude-plugins-official": true
+  }
+}
+</file>
+
+<file path="AGENTS.md">
+# Expo HAS CHANGED
+
+Read the exact versioned docs at https://docs.expo.dev/versions/v56.0.0/ before writing any code.
+</file>
+
+<file path="assets/expo.icon/Assets/expo-symbol 2.svg">
+<svg width="652" height="606" viewBox="0 0 652 606" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M353.554 0H298.446C273.006 0 249.684 14.6347 237.962 37.9539L4.37994 502.646C-1.04325 513.435 -1.45067 526.178 3.2716 537.313L22.6123 582.918C34.6475 611.297 72.5404 614.156 88.4414 587.885L309.863 222.063C313.34 216.317 319.439 212.826 326 212.826C332.561 212.826 338.659 216.317 342.137 222.063L563.559 587.885C579.46 614.156 617.352 611.297 629.388 582.918L648.728 537.313C653.451 526.178 653.043 513.435 647.62 502.646L414.038 37.9539C402.316 14.6347 378.994 0 353.554 0Z" fill="white"/>
+</svg>
+</file>
+
+<file path="CLAUDE.md">
+@AGENTS.md
+</file>
+
+<file path="eas.json">
+{
+  "cli": {
+    "version": ">= 20.1.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "ios": {
+        "simulator": true
+      }
+    },
+    "production": {
+      "autoIncrement": true
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
+</file>
+
+<file path="LICENSE">
+The MIT License (MIT)
+
+Copyright (c) 2015-present 650 Industries, Inc. (aka Expo)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+</file>
+
+<file path="README.md">
+# Welcome to your Expo app 👋
+
+This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+
+## Get started
+
+1. Install dependencies
+
+   ```bash
+   npm install
+   ```
+
+2. Start the app
+
+   ```bash
+   npx expo start
+   ```
+
+In the output, you'll find options to open the app in a
+
+- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
+- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
+- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
+- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+
+You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+
+## Get a fresh project
+
+When you're ready, run:
+
+```bash
+npm run reset-project
+```
+
+This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+
+### Other setup steps
+
+- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
+- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
+- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+
+## Learn more
+
+To learn more about developing your project with Expo, look at the following resources:
+
+- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
+- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+
+## Join the community
+
+Join our community of developers creating universal apps.
+
+- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
+- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+</file>
+
+<file path="src/app/menu.tsx">
+import { useRouter } from "expo-router";
+import { Button, StyleSheet, Text, View } from "react-native";
+
+export default function MenuScreen() {
+  const router = useRouter();
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.text}>Menu Screen</Text>
+      {/* We use router.back() to close the modal */}
+      <Button title="Close" onPress={() => router.back()} />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  text: {
+    fontSize: 20,
+    fontWeight: "bold",
+    marginBottom: 20,
+  },
+});
+</file>
+
+<file path="src/app/reader.tsx">
+import { StyleSheet, Text, View } from "react-native";
+
+export default function ReaderScreen() {
+  return (
+    <View style={styles.container}>
+      <Text style={styles.text}>Reader Screen</Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  text: {
+    fontSize: 20,
+    fontWeight: "bold",
+  },
+});
+</file>
+
+<file path="src/app/settings.tsx">
+import { StyleSheet, Text, View } from "react-native";
+
+export default function SettingsScreen() {
+  return (
+    <View style={styles.container}>
+      <Text style={styles.text}>Settings Screen</Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  text: {
+    fontSize: 20,
+    fontWeight: "bold",
+  },
+});
+</file>
+
+<file path="src/global.css">
+:root {
+  --font-display:
+    Spline Sans, Inter, ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji,
+    Segoe UI Symbol, Noto Color Emoji;
+  --font-mono:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;
+  --font-rounded: 'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif;
+  --font-serif: Georgia, 'Times New Roman', serif;
+}
+</file>
+
+<file path="src/store/bookStore.ts">
+import { create } from "zustand";
+import { getLibraryFiles } from "../utils/fileSystem";
+
+interface Book {
+  id: string;
+  title: string;
+  uri: string;
+}
+
+interface BookStore {
+  books: Book[];
+  isLoading: boolean;
+  loadBooks: () => Promise<void>;
+}
+
+export const useBookStore = create<BookStore>((set) => ({
+  books: [],
+  isLoading: false,
+
+  loadBooks: async () => {
+    set({ isLoading: true });
+    try {
+      const files = await getLibraryFiles();
+      set({ books: files, isLoading: false });
+    } catch (error) {
+      console.error("Failed to load books into store:", error);
+      set({ books: [], isLoading: false });
+    }
+  },
+}));
+</file>
+
+<file path=".gitignore">
+# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+
+# dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Metro
+.metro-health-check*
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS
+.DS_Store
+*.pem
+
+# local env files
+.env*.local
+
+# typescript
+*.tsbuildinfo
+
+example
+
+# generated native folders
+/ios
+/android
+
+# for repomix
+repomix-instruction.xml
+</file>
+
+<file path="assets/expo.icon/icon.json">
+{
+  "fill": {
+    "automatic-gradient": "extended-srgb:0.00000,0.47843,1.00000,1.00000"
+  },
+  "groups": [
+    {
+      "layers": [
+        {
+          "image-name": "expo-symbol 2.svg",
+          "name": "expo-symbol 2",
+          "position": {
+            "scale": 1,
+            "translation-in-points": [1.1008400065293245e-5, -16.046875]
+          }
+        },
+        {
+          "image-name": "grid.png",
+          "name": "grid"
+        }
+      ],
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.5
+      },
+      "translucency": {
+        "enabled": true,
+        "value": 0.5
+      }
+    }
+  ],
+  "supported-platforms": {
+    "circles": ["watchOS"],
+    "squares": "shared"
+  }
+}
+</file>
+
+<file path="eslint.config.js">
+const { defineConfig } = require("eslint/config");
+const expoConfig = require("eslint-config-expo/flat");
+const prettierConfig = require("eslint-plugin-prettier/recommended");
+
+module.exports = defineConfig([
+  expoConfig,
+  prettierConfig,
+  {
+    ignores: ["dist/*"],
+    rules: {
+      "prettier/prettier": [
+        "error",
+        {
+          endOfLine: "auto",
+        },
+      ],
+    },
+  },
+]);
+</file>
+
+<file path="src/components/BookCard.tsx">
+import { StyleSheet, Text, View } from "react-native";
+
+interface BookCardProps {
+  title: string;
+  uri: string;
+}
+
+export default function BookCard({ title, uri }: BookCardProps) {
+  return (
+    <View style={styles.bookCard}>
+      <Text style={styles.bookTitle}>{title}</Text>
+      <Text style={styles.bookPath} numberOfLines={1} ellipsizeMode="middle">
+        {uri}
+      </Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  bookCard: {
+    padding: 15,
+    backgroundColor: "#f9f9f9",
+    borderBottomWidth: 1,
+    borderColor: "#eee",
+    marginBottom: 10,
+    borderRadius: 8,
+  },
+  bookTitle: {
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  bookPath: {
+    fontSize: 12,
+    color: "gray",
+    marginTop: 4,
+  },
+});
+</file>
+
+<file path="src/utils/fileSystem.ts">
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as FileSystem from "expo-file-system/legacy";
+import { Platform } from "react-native";
+
+const ANDROID_FOLDER_KEY = "android_library_folder";
+
+export async function getLibraryFiles() {
+  try {
+    let targetDirectory = "";
+
+    // iOS: Read the exposed document directory
+    if (Platform.OS === "ios") {
+      targetDirectory = FileSystem.documentDirectory || "";
+      if (!targetDirectory) return [];
+    }
+
+    // Android: Storage Access Framework
+    else if (Platform.OS === "android") {
+      const savedUri = await AsyncStorage.getItem(ANDROID_FOLDER_KEY);
+
+      if (savedUri) {
+        targetDirectory = savedUri;
+      } else {
+        const permissions =
+          await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+
+        if (!permissions.granted) {
+          return [];
+        }
+
+        targetDirectory = permissions.directoryUri;
+        await AsyncStorage.setItem(ANDROID_FOLDER_KEY, targetDirectory);
+      }
+    }
+
+    // Read directory and filter EPUBs
+    let allFiles: string[] = [];
+
+    if (Platform.OS === "android") {
+      allFiles =
+        await FileSystem.StorageAccessFramework.readDirectoryAsync(
+          targetDirectory,
+        );
+    } else {
+      allFiles = await FileSystem.readDirectoryAsync(targetDirectory);
+    }
+
+    const epubs = allFiles
+      .filter((fileName) => fileName.endsWith(".epub"))
+      .map((fileUri) => {
+        const fullUri =
+          Platform.OS === "android" ? fileUri : targetDirectory + fileUri;
+        const titleMatch =
+          fileUri.split("/").pop()?.replace(".epub", "") || "Unknown Title";
+
+        return {
+          id: fullUri,
+          title: decodeURIComponent(titleMatch),
+          uri: fullUri,
+        };
+      });
+
+    return epubs;
+  } catch (error) {
+    console.error("Failed to read library directory:", error);
+    return [];
+  }
+}
+</file>
+
+<file path="tsconfig.json">
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "paths": {
+      "@/*": ["./src/*"],
+      "@/assets/*": ["./assets/*"]
+    }
+  },
+  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"]
+}
+</file>
+
+<file path="src/constants/theme.ts">
+import { Platform } from "react-native";
+
+export const Colors = {
+  light: {
+    text: "#11181C",
+    textSecondary: "#687076",
+    background: "#F2F4F7",
+    surface: "#FFFFFF",
+    border: "#D7DBDF",
+    primary: "#007AFF",
+  },
+  dark: {
+    text: "#ECEDEE",
+    textSecondary: "#9BA1A6",
+    background: "#111111",
+    surface: "#1C1C1E",
+    border: "#2B2D31",
+    primary: "#0A84FF",
+  },
+} as const;
+
+export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
+
+export const Fonts = Platform.select({
+  ios: {
+    sans: "system-ui",
+    serif: "ui-serif",
+    rounded: "ui-rounded",
+    mono: "ui-monospace",
+  },
+  default: {
+    sans: "normal",
+    serif: "serif",
+    rounded: "normal",
+    mono: "monospace",
+  },
+});
+
+export const Spacing = {
+  half: 2,
+  one: 4,
+  two: 8,
+  three: 12,
+  four: 16,
+  five: 24,
+  six: 32,
+} as const;
+
+export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
+export const MaxContentWidth = 800;
+</file>
+
+<file path="app.json">
+{
+  "expo": {
+    "name": "EpubReader",
+    "slug": "EpubReader",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "epubreader",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "icon": "./assets/expo.icon",
+      "supportsTablet": true,
+      "infoPlist": {
+        "UIFileSharingEnabled": true,
+        "LSSupportsOpeningDocumentsInPlace": true
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "com.anonymous.EpubReader"
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#208AEF",
+          "android": {
+            "image": "./assets/images/splash-icon.png",
+            "imageWidth": 76
+          }
+        }
+      ],
+      "expo-image"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "a77d9a4d-9114-4222-b42c-8b07dfc23b5e"
+      }
+    }
+  }
+}
+</file>
+
+<file path="src/app/_layout.tsx">
+import { Stack } from "expo-router";
+
+export default function RootLayout() {
+  return (
+    <Stack>
+      {/* Library */}
+      <Stack.Screen
+        name="index"
+        options={{ headerShown: false, animation: "none" }}
+      />
+
+      {/* Reader */}
+      <Stack.Screen
+        name="reader"
+        options={{ title: "Reader", animation: "none" }}
+      />
+
+      {/* Settings */}
+      <Stack.Screen
+        name="settings"
+        options={{ title: "Settings", animation: "none" }}
+      />
+
+      {/* Menu */}
+      <Stack.Screen
+        name="menu"
+        options={{
+          presentation: "modal",
+          title: "Menu",
+          animation: "slide_from_bottom",
+        }}
+      />
+    </Stack>
+  );
+}
+</file>
+
+<file path="package.json">
+{
+  "name": "epubreader",
+  "main": "expo-router/entry",
+  "version": "1.0.0",
+  "dependencies": {
+    "@expo/ui": "~56.0.15",
+    "@expo/vector-icons": "^15.0.2",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "expo": "~56.0.8",
+    "expo-constants": "~56.0.15",
+    "expo-device": "~56.0.4",
+    "expo-document-picker": "~56.0.4",
+    "expo-file-system": "~56.0.7",
+    "expo-font": "~56.0.5",
+    "expo-glass-effect": "~56.0.4",
+    "expo-image": "~56.0.9",
+    "expo-linking": "~56.0.13",
+    "expo-router": "~56.2.8",
+    "expo-splash-screen": "~56.0.10",
+    "expo-status-bar": "~56.0.4",
+    "expo-symbols": "~56.0.5",
+    "expo-system-ui": "~56.0.5",
+    "expo-web-browser": "~56.0.5",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.85.3",
+    "react-native-gesture-handler": "~2.31.1",
+    "react-native-reanimated": "4.3.1",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-screens": "4.25.2",
+    "react-native-web": "~0.21.0",
+    "react-native-webview": "13.16.1",
+    "react-native-worklets": "0.8.3",
+    "zustand": "^5.0.14"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.2",
+    "eslint": "^9.0.0",
+    "eslint-config-expo": "~56.0.4",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.5",
+    "prettier": "^3.8.3",
+    "typescript": "~6.0.3"
+  },
+  "scripts": {
+    "start": "expo start",
+    "reset-project": "node ./scripts/reset-project.js",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "lint": "expo lint",
+    "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json}\""
+  },
+  "private": true
+}
+</file>
+
+<file path="src/app/index.tsx">
+import { useEffect } from "react";
+import {
+  ActivityIndicator,
+  Button,
+  FlatList,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import BookCard from "../components/BookCard";
+import { useBookStore } from "../store/bookStore";
+
+export default function LibraryScreen() {
+  const { books, isLoading, loadBooks } = useBookStore();
+
+  useEffect(() => {
+    loadBooks();
+  }, [loadBooks]);
+
+  if (isLoading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color="#0000ff" />
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.header}>My Library</Text>
+
+      <Button title="Refresh Library" onPress={loadBooks} />
+
+      {books.length === 0 ? (
+        <Text style={styles.emptyText}>
+          No books found. Add .epub files to the app folder.
+        </Text>
+      ) : (
+        <FlatList
+          data={books}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <BookCard title={item.title} uri={item.uri} />
+          )}
+        />
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, padding: 20, backgroundColor: "#fff" },
+  center: { flex: 1, justifyContent: "center", alignItems: "center" },
+  header: { fontSize: 24, fontWeight: "bold", marginBottom: 20 },
+  emptyText: { textAlign: "center", marginTop: 50, color: "gray" },
+});
+</file>
+
+</files>

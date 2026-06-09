@@ -1,4 +1,6 @@
-import { StyleSheet, Text, View } from "react-native";
+import { useRouter } from "expo-router";
+import { StyleSheet, Text, TouchableOpacity } from "react-native";
+import { useBookStore } from "../store/bookStore";
 
 interface BookCardProps {
   title: string;
@@ -6,13 +8,25 @@ interface BookCardProps {
 }
 
 export default function BookCard({ title, uri }: BookCardProps) {
+  const router = useRouter();
+  const setCurrentBook = useBookStore((state) => state.setCurrentBook);
+
+  const handlePress = () => {
+    setCurrentBook(uri);
+    router.push("/reader");
+  };
+
   return (
-    <View style={styles.bookCard}>
+    <TouchableOpacity
+      style={styles.bookCard}
+      onPress={handlePress}
+      activeOpacity={0.7}
+    >
       <Text style={styles.bookTitle}>{title}</Text>
       <Text style={styles.bookPath} numberOfLines={1} ellipsizeMode="middle">
         {uri}
       </Text>
-    </View>
+    </TouchableOpacity>
   );
 }
 

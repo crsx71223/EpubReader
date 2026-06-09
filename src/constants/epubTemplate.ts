@@ -7,15 +7,19 @@ export const EPUB_HTML_TEMPLATE = `
     <script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"></script>
     <style>
       body { margin: 0; padding: 0; background-color: #fafafa; }
-      #viewer { width: 100vw; height: 100vh; overflow: hidden; }
+      #viewer { width: 100vw; height: 100vh; overflow: hidden; display: flex; justify-content: center; align-items: center; }
+      #error { color: red; text-align: center; display: none; padding: 20px; font-family: sans-serif; font-weight: bold; }
     </style>
   </head>
   <body>
     <div id="viewer"></div>
+    <div id="error"></div>
     <script>
-      window.addEventListener('message', function(event) {
+      function renderBook(event) {
         try {
           var bookData = event.data;
+          if (!bookData || bookData === 'READY') return; 
+          
           var book = ePub(bookData, { encoding: "base64" });
           var rendition = book.renderTo("viewer", {
             width: "100%",
@@ -24,9 +28,19 @@ export const EPUB_HTML_TEMPLATE = `
           });
           rendition.display();
         } catch (e) {
-          document.getElementById('viewer').innerHTML = '<p style="text-align:center; margin-top: 50px;">Failed to render book.</p>';
+          document.getElementById('error').style.display = 'block';
+          document.getElementById('error').innerText = 'EPUB Engine Error: ' + e.message;
         }
-      });
+      }
+
+      window.addEventListener('message', renderBook);
+      document.addEventListener('message', renderBook); // Fallback for specific Android versions
+
+      window.onload = function() {
+        if (window.ReactNativeWebView) {
+          window.ReactNativeWebView.postMessage("READY");
+        }
+      };
     </script>
   </body>
   </html>

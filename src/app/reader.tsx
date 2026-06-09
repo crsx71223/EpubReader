@@ -1,17 +1,23 @@
 import * as FileSystem from "expo-file-system/legacy";
-import { Stack, useLocalSearchParams } from "expo-router";
+import { Stack } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Alert, StyleSheet, Text, View } from "react-native";
 import { WebView } from "react-native-webview";
 import { EPUB_HTML_TEMPLATE } from "../constants/epubTemplate";
+import { useBookStore } from "../store/bookStore";
 
 export default function ReaderScreen() {
-  const { uri, title } = useLocalSearchParams<{ uri: string; title: string }>();
+  const uri = useBookStore((state) => state.currentBookUri);
+  const books = useBookStore((state) => state.books);
+
+  const title = books.find((b) => b.uri === uri)?.title || "Reader";
+
   const [base64Book, setBase64Book] = useState<string | null>(null);
   const webViewRef = useRef<WebView>(null);
 
   useEffect(() => {
     async function loadBookData() {
+      if (!uri) return;
       try {
         const base64 = await FileSystem.readAsStringAsync(uri, {
           encoding: FileSystem.EncodingType.Base64,
@@ -23,14 +29,22 @@ export default function ReaderScreen() {
       }
     }
 
-    if (uri) {
-      loadBookData();
-    }
+    loadBookData();
   }, [uri]);
+
+  if (!uri) {
+    return (
+      <View style={styles.container}>
+        <Text style={{ textAlign: "center", marginTop: 50 }}>
+          No book selected.
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      <Stack.Screen options={{ title: title || "Reader" }} />
+      <Stack.Screen options={{ title: title }} />
 
       {!base64Book ? (
         <View style={styles.loadingContainer}>

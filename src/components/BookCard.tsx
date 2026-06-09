@@ -1,5 +1,6 @@
 import { useRouter } from "expo-router";
 import { StyleSheet, Text, TouchableOpacity } from "react-native";
+import { useBookStore } from "../store/bookStore";
 
 interface BookCardProps {
   title: string;
@@ -8,12 +9,11 @@ interface BookCardProps {
 
 export default function BookCard({ title, uri }: BookCardProps) {
   const router = useRouter();
+  const setCurrentBook = useBookStore((state) => state.setCurrentBook);
 
   const handlePress = () => {
-    router.push({
-      pathname: "/reader",
-      params: { uri, title },
-    });
+    setCurrentBook(uri);
+    router.push("/reader");
   };
 
   return (

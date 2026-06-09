@@ -26,7 +26,32 @@ export const EPUB_HTML_TEMPLATE = `
             height: "100%",
             spread: "none"
           });
+          
           rendition.display();
+
+          rendition.on("touchstart", function(event) {
+            var startX = event.changedTouches[0].clientX;
+            var screenWidth = window.innerWidth;
+            
+            if (startX < screenWidth / 3) {
+              rendition.prev();
+            } 
+            else if (startX > screenWidth * 2 / 3) {
+              rendition.next();
+            }
+          });
+
+          rendition.on("click", function(event) {
+            var clientX = event.clientX;
+            var screenWidth = window.innerWidth;
+            
+            if (clientX < screenWidth / 3) {
+              rendition.prev();
+            } else if (clientX > screenWidth * 2 / 3) {
+              rendition.next();
+            }
+          });
+
         } catch (e) {
           document.getElementById('error').style.display = 'block';
           document.getElementById('error').innerText = 'EPUB Engine Error: ' + e.message;

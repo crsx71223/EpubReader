@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "EpubReader",
-    "slug": "EpubReader",
+    "slug": "epub-reader",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -12,8 +12,10 @@
       "supportsTablet": true,
       "infoPlist": {
         "UIFileSharingEnabled": true,
-        "LSSupportsOpeningDocumentsInPlace": true
-      }
+        "LSSupportsOpeningDocumentsInPlace": true,
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "bundleIdentifier": "com.onurkeskin.EpubReader"
     },
     "android": {
       "adaptiveIcon": {
@@ -41,7 +43,8 @@
           }
         }
       ],
-      "expo-image"
+      "expo-image",
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true,
@@ -50,8 +53,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "a77d9a4d-9114-4222-b42c-8b07dfc23b5e"
+        "projectId": "b812a07b-72ca-484a-b74d-0b80ed98f0d0"
       }
-    }
+    },
+    "owner": "crsx7s-team"
   }
 }

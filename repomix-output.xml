@@ -60,10 +60,12 @@ assets/images/react-logo.png
 assets/images/react-logo@2x.png
 assets/images/react-logo@3x.png
 assets/images/splash-icon.png
+assets/reader.html
 CLAUDE.md
 eas.json
 eslint.config.js
 LICENSE
+metro.config.js
 package.json
 README.md
 src/app/_layout.tsx
@@ -72,6 +74,7 @@ src/app/menu.tsx
 src/app/reader.tsx
 src/app/settings.tsx
 src/components/BookCard.tsx
+src/constants/epubTemplate.ts
 src/constants/theme.ts
 src/global.css
 src/store/bookStore.ts
@@ -81,6 +84,124 @@ tsconfig.json
 
 <files>
 This section contains the contents of the repository's files.
+
+<file path="assets/reader.html">
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.5/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #fafafa;
+    }
+    #viewer {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    #error {
+      color: red;
+      text-align: center;
+      display: none;
+      padding: 20px;
+      font-family: sans-serif;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div id="viewer"></div>
+  <div id="error"></div>
+  <script>
+    var rendition = null;
+    var startX = 0;
+    var startY = 0;
+    var SWIPE_THRESHOLD = 40;
+
+    function applyTheme(options) {
+      if (!rendition) return;
+      rendition.themes.default({
+        body: {
+          color: options.textColor || '#000000',
+          'font-size': (options.fontSize || 100) + '%',
+          'background-color': options.backgroundColor || '#fafafa',
+        }
+      });
+    }
+
+    function handleMessage(event) {
+      try {
+        var data = event.data;
+        if (!data || data === 'READY') return;
+
+        // Settings update from React Native
+        if (typeof data === 'string' && data.charAt(0) === '{') {
+          var msg = JSON.parse(data);
+          if (msg.type === 'THEME') { applyTheme(msg); return; }
+        }
+
+        // Book data — first load
+        var book = ePub(data, { encoding: 'base64' });
+        rendition = book.renderTo('viewer', { width: '100%', height: '100%', spread: 'none' });
+        rendition.display();
+
+        rendition.on('touchstart', function(e) {
+          startX = e.changedTouches[0].clientX;
+          startY = e.changedTouches[0].clientY;
+        });
+
+        rendition.on('touchend', function(e) {
+          var endX = e.changedTouches[0].clientX;
+          var endY = e.changedTouches[0].clientY;
+          var deltaX = endX - startX;
+          var deltaY = endY - startY;
+
+          // ignore vertical gestures
+          if (Math.abs(deltaY) > Math.abs(deltaX)) return;
+
+          if (Math.abs(deltaX) > SWIPE_THRESHOLD) {
+            deltaX < 0 ? rendition.next() : rendition.prev();
+          } else {
+            var zone = endX / window.innerWidth;
+            if (zone < 0.33) rendition.prev();
+            else if (zone > 0.66) rendition.next();
+          }
+        });
+
+      } catch (e) {
+        document.getElementById('error').style.display = 'block';
+        document.getElementById('error').innerText = 'EPUB Engine Error: ' + e.message;
+      }
+    }
+
+    window.addEventListener('message', handleMessage);
+    document.addEventListener('message', handleMessage);
+
+    window.onload = function() {
+      if (window.ReactNativeWebView) {
+        window.ReactNativeWebView.postMessage('READY');
+      }
+    };
+  </script>
+</body>
+</html>
+</file>
+
+<file path="metro.config.js">
+const { getDefaultConfig } = require('expo/metro-config');
+
+const config = getDefaultConfig(__dirname);
+config.resolver.assetExts.push('html');
+
+module.exports = config;
+</file>
 
 <file path=".claude/settings.json">
 {
@@ -249,30 +370,6 @@ const styles = StyleSheet.create({
 });
 </file>
 
-<file path="src/app/reader.tsx">
-import { StyleSheet, Text, View } from "react-native";
-
-export default function ReaderScreen() {
-  return (
-    <View style={styles.container}>
-      <Text style={styles.text}>Reader Screen</Text>
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  text: {
-    fontSize: 20,
-    fontWeight: "bold",
-  },
-});
-</file>
-
 <file path="src/app/settings.tsx">
 import { StyleSheet, Text, View } from "react-native";
 
@@ -297,6 +394,81 @@ const styles = StyleSheet.create({
 });
 </file>
 
+<file path="src/constants/epubTemplate.ts">
+export const EPUB_HTML_TEMPLATE = `
+  <!DOCTYPE html>
+  <html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.5/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"></script>
+    <style>
+      body { margin: 0; padding: 0; background-color: #fafafa; }
+      #viewer { width: 100vw; height: 100vh; overflow: hidden; display: flex; justify-content: center; align-items: center; }
+      #error { color: red; text-align: center; display: none; padding: 20px; font-family: sans-serif; font-weight: bold; }
+    </style>
+  </head>
+  <body>
+    <div id="viewer"></div>
+    <div id="error"></div>
+    <script>
+      function renderBook(event) {
+        try {
+          var bookData = event.data;
+          if (!bookData || bookData === 'READY') return; 
+          
+          var book = ePub(bookData, { encoding: "base64" });
+          var rendition = book.renderTo("viewer", {
+            width: "100%",
+            height: "100%",
+            spread: "none"
+          });
+          
+          rendition.display();
+
+          rendition.on("touchstart", function(event) {
+            var startX = event.changedTouches[0].clientX;
+            var screenWidth = window.innerWidth;
+            
+            if (startX < screenWidth / 3) {
+              rendition.prev();
+            } 
+            else if (startX > screenWidth * 2 / 3) {
+              rendition.next();
+            }
+          });
+
+          rendition.on("click", function(event) {
+            var clientX = event.clientX;
+            var screenWidth = window.innerWidth;
+            
+            if (clientX < screenWidth / 3) {
+              rendition.prev();
+            } else if (clientX > screenWidth * 2 / 3) {
+              rendition.next();
+            }
+          });
+
+        } catch (e) {
+          document.getElementById('error').style.display = 'block';
+          document.getElementById('error').innerText = 'EPUB Engine Error: ' + e.message;
+        }
+      }
+
+      window.addEventListener('message', renderBook);
+      document.addEventListener('message', renderBook);
+
+      window.onload = function() {
+        if (window.ReactNativeWebView) {
+          window.ReactNativeWebView.postMessage("READY");
+        }
+      };
+    </script>
+  </body>
+  </html>
+`;
+</file>
+
 <file path="src/global.css">
 :root {
   --font-display:
@@ -307,39 +479,6 @@ const styles = StyleSheet.create({
   --font-rounded: 'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif;
   --font-serif: Georgia, 'Times New Roman', serif;
 }
-</file>
-
-<file path="src/store/bookStore.ts">
-import { create } from "zustand";
-import { getLibraryFiles } from "../utils/fileSystem";
-
-interface Book {
-  id: string;
-  title: string;
-  uri: string;
-}
-
-interface BookStore {
-  books: Book[];
-  isLoading: boolean;
-  loadBooks: () => Promise<void>;
-}
-
-export const useBookStore = create<BookStore>((set) => ({
-  books: [],
-  isLoading: false,
-
-  loadBooks: async () => {
-    set({ isLoading: true });
-    try {
-      const files = await getLibraryFiles();
-      set({ books: files, isLoading: false });
-    } catch (error) {
-      console.error("Failed to load books into store:", error);
-      set({ books: [], isLoading: false });
-    }
-  },
-}));
 </file>
 
 <file path=".gitignore">
@@ -451,44 +590,128 @@ module.exports = defineConfig([
 ]);
 </file>
 
-<file path="src/components/BookCard.tsx">
-import { StyleSheet, Text, View } from "react-native";
+<file path="src/app/reader.tsx">
+import { Asset } from "expo-asset";
+import * as FileSystem from "expo-file-system/legacy";
+import { Stack } from "expo-router";
+import { useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Alert, StyleSheet, Text, View } from "react-native";
+import { WebView } from "react-native-webview";
+import { useBookStore } from "../store/bookStore";
 
-interface BookCardProps {
-  title: string;
-  uri: string;
-}
+export default function ReaderScreen() {
+  const uri = useBookStore((state) => state.currentBookUri);
+  const books = useBookStore((state) => state.books);
+  const title = books.find((b) => b.uri === uri)?.title || "Reader";
 
-export default function BookCard({ title, uri }: BookCardProps) {
+  const [htmlUri, setHtmlUri] = useState<string | null>(null);
+  const [base64Book, setBase64Book] = useState<string | null>(null);
+  const webViewRef = useRef<WebView>(null);
+
+  useEffect(() => {
+    Asset.loadAsync(require("../../assets/reader.html")).then(([asset]) => {
+      setHtmlUri(asset.localUri);
+    });
+  }, []);
+
+  useEffect(() => {
+    async function loadBookData() {
+      if (!uri) return;
+      try {
+        const base64 = await FileSystem.readAsStringAsync(uri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        setBase64Book(base64);
+      } catch (error) {
+        console.error("Failed to load book:", error);
+        Alert.alert("Error", "Could not load the book file.");
+      }
+    }
+
+    loadBookData();
+  }, [uri]);
+
+  if (!uri) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.fallbackText}>No book selected.</Text>
+      </View>
+    );
+  }
+
+  const isReady = htmlUri && base64Book;
+
   return (
-    <View style={styles.bookCard}>
-      <Text style={styles.bookTitle}>{title}</Text>
-      <Text style={styles.bookPath} numberOfLines={1} ellipsizeMode="middle">
-        {uri}
-      </Text>
+    <View style={styles.container}>
+      <Stack.Screen options={{ title }} />
+
+      {!isReady ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#007AFF" />
+        </View>
+      ) : (
+        <WebView
+          ref={webViewRef}
+          originWhitelist={["*"]}
+          source={{ uri: htmlUri }}
+          style={styles.webview}
+          javaScriptEnabled={true}
+          domStorageEnabled={true}
+          onMessage={(event) => {
+            if (event.nativeEvent.data === "READY" && base64Book) {
+              webViewRef.current?.postMessage(base64Book);
+            }
+          }}
+        />
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  bookCard: {
-    padding: 15,
-    backgroundColor: "#f9f9f9",
-    borderBottomWidth: 1,
-    borderColor: "#eee",
-    marginBottom: 10,
-    borderRadius: 8,
-  },
-  bookTitle: {
-    fontSize: 16,
-    fontWeight: "500",
-  },
-  bookPath: {
-    fontSize: 12,
-    color: "gray",
-    marginTop: 4,
-  },
+  container: { flex: 1, backgroundColor: "#fff" },
+  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
+  webview: { flex: 1 },
+  fallbackText: { textAlign: "center", marginTop: 50, color: "gray" },
 });
+</file>
+
+<file path="src/store/bookStore.ts">
+import { create } from "zustand";
+import { getLibraryFiles } from "../utils/fileSystem";
+
+interface Book {
+  id: string;
+  title: string;
+  uri: string;
+}
+
+interface BookStore {
+  books: Book[];
+  isLoading: boolean;
+  currentBookUri: string | null;
+  loadBooks: () => Promise<void>;
+  setCurrentBook: (uri: string | null) => void;
+}
+
+export const useBookStore = create<BookStore>((set) => ({
+  books: [],
+  isLoading: false,
+  currentBookUri: null,
+
+  loadBooks: async () => {
+    set({ isLoading: true });
+    try {
+      const files = await getLibraryFiles();
+      set({ books: files, isLoading: false });
+    } catch (error) {
+      console.error("Failed to load books into store:", error);
+      set({ books: [], isLoading: false });
+    }
+  },
+
+  setCurrentBook: (uri) => set({ currentBookUri: uri }),
+}));
 </file>
 
 <file path="src/utils/fileSystem.ts">
@@ -576,6 +799,60 @@ export async function getLibraryFiles() {
 }
 </file>
 
+<file path="src/components/BookCard.tsx">
+import { useRouter } from "expo-router";
+import { StyleSheet, Text, TouchableOpacity } from "react-native";
+import { useBookStore } from "../store/bookStore";
+
+interface BookCardProps {
+  title: string;
+  uri: string;
+}
+
+export default function BookCard({ title, uri }: BookCardProps) {
+  const router = useRouter();
+  const setCurrentBook = useBookStore((state) => state.setCurrentBook);
+
+  const handlePress = () => {
+    setCurrentBook(uri);
+    router.push("/reader");
+  };
+
+  return (
+    <TouchableOpacity
+      style={styles.bookCard}
+      onPress={handlePress}
+      activeOpacity={0.7}
+    >
+      <Text style={styles.bookTitle}>{title}</Text>
+      <Text style={styles.bookPath} numberOfLines={1} ellipsizeMode="middle">
+        {uri}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
+const styles = StyleSheet.create({
+  bookCard: {
+    padding: 15,
+    backgroundColor: "#f9f9f9",
+    borderBottomWidth: 1,
+    borderColor: "#eee",
+    marginBottom: 10,
+    borderRadius: 8,
+  },
+  bookTitle: {
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  bookPath: {
+    fontSize: 12,
+    color: "gray",
+    marginTop: 4,
+  },
+});
+</file>
+
 <file path="src/constants/theme.ts">
 import { Platform } from "react-native";
 
@@ -633,7 +910,7 @@ export const MaxContentWidth = 800;
 {
   "expo": {
     "name": "EpubReader",
-    "slug": "EpubReader",
+    "slug": "epub-reader",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -644,8 +921,10 @@ export const MaxContentWidth = 800;
       "supportsTablet": true,
       "infoPlist": {
         "UIFileSharingEnabled": true,
-        "LSSupportsOpeningDocumentsInPlace": true
-      }
+        "LSSupportsOpeningDocumentsInPlace": true,
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "bundleIdentifier": "com.onurkeskin.EpubReader"
     },
     "android": {
       "adaptiveIcon": {
@@ -673,7 +952,8 @@ export const MaxContentWidth = 800;
           }
         }
       ],
-      "expo-image"
+      "expo-image",
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true,
@@ -682,9 +962,10 @@ export const MaxContentWidth = 800;
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "a77d9a4d-9114-4222-b42c-8b07dfc23b5e"
+        "projectId": "b812a07b-72ca-484a-b74d-0b80ed98f0d0"
       }
-    }
+    },
+    "owner": "crsx7s-team"
   }
 }
 </file>
@@ -737,6 +1018,7 @@ export default function RootLayout() {
     "@expo/vector-icons": "^15.0.2",
     "@react-native-async-storage/async-storage": "2.2.0",
     "expo": "~56.0.8",
+    "expo-asset": "~56.0.17",
     "expo-constants": "~56.0.15",
     "expo-device": "~56.0.4",
     "expo-document-picker": "~56.0.4",

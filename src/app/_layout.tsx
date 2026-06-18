@@ -20,16 +20,6 @@ export default function RootLayout() {
         name="settings"
         options={{ title: "Settings", animation: "none" }}
       />
-
-      {/* Menu */}
-      <Stack.Screen
-        name="menu"
-        options={{
-          presentation: "modal",
-          title: "Menu",
-          animation: "slide_from_bottom",
-        }}
-      />
     </Stack>
   );
 }

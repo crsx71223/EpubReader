@@ -1,10 +1,12 @@
 import { create } from "zustand";
 import { getLibraryFiles } from "../utils/fileSystem";
 
-interface Book {
+export interface Book {
   id: string;
-  title: string;
   uri: string;
+  title: string;
+  author: string | null;
+  coverUri: string | null;
 }
 
 interface BookStore {

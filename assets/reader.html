@@ -20,15 +20,34 @@
     function applySettings() {
       if (!window.currentSettings || !window.rendition) return;
       const data = window.currentSettings;
+      
       try {
-          if (data.colors) {
-            window.rendition.themes.override('color', data.colors.text);
-            window.rendition.themes.override('background', data.colors.background);
-            document.body.style.backgroundColor = data.colors.background;
+          const textColor = data.colors ? data.colors.text : '#11181C';
+          const bgColor = data.colors ? data.colors.background : '#F2F4F7';
+
+          document.body.style.backgroundColor = bgColor;
+
+          let fontStack = '-apple-system, system-ui, sans-serif';
+          if (data.currentFont === 'Serif') {
+            fontStack = 'Georgia, "Times New Roman", serif';
+          } else if (data.currentFont === 'Monospace') {
+            fontStack = 'ui-monospace, "Courier New", monospace';
           }
+
+          window.rendition.themes.register("dynamicTheme", {
+            "body": {
+              "background": `${bgColor} !important`,
+              "background-color": `${bgColor} !important`
+            },
+            "p, span, div, h1, h2, h3, h4, h5, h6, li, blockquote, a": {
+              "color": `${textColor} !important`,
+              "font-family": `${fontStack} !important`,
+              "background-color": "transparent !important"
+            }
+          });
           
-          const font = data.currentFont === 'System' ? '-apple-system, system-ui, sans-serif' : data.currentFont;
-          window.rendition.themes.override('font-family', font);
+          window.rendition.themes.select("dynamicTheme");
+
       } catch(e) {
           console.error('Theme Error:', e);
       }

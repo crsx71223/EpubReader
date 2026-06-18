@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Asset } from "expo-asset";
 import * as FileSystem from "expo-file-system/legacy";
-import { Link, Stack } from "expo-router";
+import { Link, Stack, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -11,12 +11,16 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
 import { Colors, Spacing, Typography } from "../constants/theme";
 import { useBookStore } from "../store/bookStore";
 import { useSettingsStore } from "../store/settingsStore";
 
 export default function ReaderScreen() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+
   const uri = useBookStore((state) => state.currentBookUri);
   const books = useBookStore((state) => state.books);
   const title = books.find((b) => b.uri === uri)?.title || "Reader";
@@ -82,27 +86,41 @@ export default function ReaderScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <Stack.Screen
-        options={{
-          title: title,
-          headerStyle: { backgroundColor: theme.background },
-          headerTintColor: theme.text,
-          headerRight: () => (
-            <Link href="/settings" asChild>
-              <TouchableOpacity
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Ionicons
-                  name="settings-outline"
-                  size={40}
-                  color={theme.text}
-                  style={{ marginRight: Spacing.lg }}
-                />
-              </TouchableOpacity>
-            </Link>
-          ),
-        }}
-      />
+      <Stack.Screen options={{ headerShown: false }} />
+
+      <View
+        style={[
+          styles.customHeader,
+          {
+            paddingTop: insets.top,
+            backgroundColor: theme.background,
+          },
+        ]}
+      >
+        <TouchableOpacity
+          onPress={() => router.back()}
+          hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+          style={styles.headerButton}
+        >
+          <Ionicons name="chevron-back" size={28} color={theme.text} />
+        </TouchableOpacity>
+
+        <Text
+          style={[styles.headerTitle, { color: theme.text }]}
+          numberOfLines={1}
+        >
+          {title}
+        </Text>
+
+        <Link href="/settings" asChild>
+          <TouchableOpacity
+            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+            style={{ ...styles.headerButton, alignItems: "flex-end" }}
+          >
+            <Ionicons name="settings-outline" size={40} color={theme.text} />
+          </TouchableOpacity>
+        </Link>
+      </View>
 
       {!isReady ? (
         <View style={styles.loadingContainer}>
@@ -146,6 +164,23 @@ export default function ReaderScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  customHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.md,
+    zIndex: 10,
+  },
+  headerButton: {
+    width: 40,
+  },
+  headerTitle: {
+    fontSize: 17,
+    fontWeight: "600",
+    flex: 1,
+    textAlign: "center",
+  },
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
   webview: { flex: 1, backgroundColor: "transparent" },
   fallbackText: {

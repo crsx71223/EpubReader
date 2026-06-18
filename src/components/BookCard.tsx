@@ -1,3 +1,4 @@
+import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
@@ -27,6 +28,7 @@ export default function BookCard({
   const shadow = isDarkMode ? Shadows.dark.sm : Shadows.light.sm;
 
   const handlePress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setCurrentBook(uri);
     router.push("/reader");
   };

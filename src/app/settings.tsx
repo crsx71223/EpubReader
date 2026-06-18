@@ -66,52 +66,24 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 20,
-    backgroundColor: "#F2F2F7",
-  },
-  containerDark: {
-    backgroundColor: "#000000",
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: "bold",
-    marginBottom: 24,
-    color: "#000000",
-  },
-  textDark: {
-    color: "#FFFFFF",
-  },
+  container: { flex: 1, padding: 20, backgroundColor: "#F2F2F7" },
+  containerDark: { backgroundColor: "#000000" },
+  title: { fontSize: 32, fontWeight: "bold", marginBottom: 24, color: "#000" },
+  textDark: { color: "#FFFFFF" },
   card: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#FFF",
     padding: 16,
     borderRadius: 10,
     marginBottom: 16,
   },
-  cardVertical: {
-    flexDirection: "column",
-    alignItems: "flex-start",
-  },
-  cardDark: {
-    backgroundColor: "#1C1C1E",
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: "500",
-    color: "#000000",
-  },
-  marginBottom: {
-    marginBottom: 16,
-  },
-  fontRow: {
-    flexDirection: "row",
-    gap: 10,
-    flexWrap: "wrap",
-  },
+  cardVertical: { flexDirection: "column", alignItems: "flex-start" },
+  cardDark: { backgroundColor: "#1C1C1E" },
+  label: { fontSize: 16, fontWeight: "500", color: "#000" },
+  marginBottom: { marginBottom: 16 },
+  fontRow: { flexDirection: "row", gap: 10, flexWrap: "wrap" },
   fontButton: {
     paddingVertical: 8,
     paddingHorizontal: 16,
@@ -119,18 +91,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#D1D1D6",
   },
-  fontButtonDark: {
-    borderColor: "#3A3A3C",
-  },
-  fontButtonActive: {
-    backgroundColor: "#007AFF",
-    borderColor: "#007AFF",
-  },
-  fontButtonText: {
-    color: "#000000",
-  },
-  fontButtonTextActive: {
-    color: "#FFFFFF",
-    fontWeight: "bold",
-  },
+  fontButtonDark: { borderColor: "#3A3A3C" },
+  fontButtonActive: { backgroundColor: "#007AFF", borderColor: "#007AFF" },
+  fontButtonText: { color: "#000" },
+  fontButtonTextActive: { color: "#FFF", fontWeight: "bold" },
 });

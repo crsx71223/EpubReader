@@ -13,11 +13,14 @@ import {
 } from "react-native";
 import { WebView } from "react-native-webview";
 import { useBookStore } from "../store/bookStore";
+import { useSettingsStore } from "../store/settingsStore";
 
 export default function ReaderScreen() {
   const uri = useBookStore((state) => state.currentBookUri);
   const books = useBookStore((state) => state.books);
   const title = books.find((b) => b.uri === uri)?.title || "Reader";
+
+  const { isDarkMode, currentFont } = useSettingsStore();
 
   const [htmlContent, setHtmlContent] = useState<string | null>(null);
   const [base64Book, setBase64Book] = useState<string | null>(null);
@@ -50,9 +53,17 @@ export default function ReaderScreen() {
     loadBookData();
   }, [uri]);
 
+  useEffect(() => {
+    if (webViewRef.current) {
+      const settingsPayload =
+        "SETTINGS:" + JSON.stringify({ isDarkMode, currentFont });
+      webViewRef.current.postMessage(settingsPayload);
+    }
+  }, [isDarkMode, currentFont]);
+
   if (!uri) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, isDarkMode && styles.containerDark]}>
         <Text style={styles.fallbackText}>No book selected.</Text>
       </View>
     );
@@ -61,10 +72,12 @@ export default function ReaderScreen() {
   const isReady = htmlContent && base64Book;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, isDarkMode && styles.containerDark]}>
       <Stack.Screen
         options={{
           title: title,
+          headerStyle: { backgroundColor: isDarkMode ? "#000" : "#fff" },
+          headerTintColor: isDarkMode ? "#fff" : "#000",
           headerRight: () => (
             <Link href="/settings" asChild>
               <TouchableOpacity
@@ -72,8 +85,8 @@ export default function ReaderScreen() {
               >
                 <Ionicons
                   name="settings-outline"
-                  size={40}
-                  color="black"
+                  size={24}
+                  color={isDarkMode ? "#fff" : "#000"}
                   style={{ marginRight: 15 }}
                 />
               </TouchableOpacity>
@@ -90,13 +103,25 @@ export default function ReaderScreen() {
         <WebView
           ref={webViewRef}
           originWhitelist={["*"]}
-          source={{ html: htmlContent }}
+          source={{ html: htmlContent, baseUrl: "" }}
+          allowFileAccess={true}
+          allowFileAccessFromFileURLs={true}
+          allowUniversalAccessFromFileURLs={true}
+          mixedContentMode="always"
           style={styles.webview}
           javaScriptEnabled={true}
           domStorageEnabled={true}
           onMessage={(event) => {
-            if (event.nativeEvent.data === "READY" && base64Book) {
-              webViewRef.current?.postMessage(base64Book);
+            const data = event.nativeEvent.data;
+
+            if (data === "READY" && base64Book) {
+              webViewRef.current?.postMessage("BOOK:" + base64Book);
+
+              const initialSettings =
+                "SETTINGS:" + JSON.stringify({ isDarkMode, currentFont });
+              webViewRef.current?.postMessage(initialSettings);
+            } else if (data.startsWith("LOG:")) {
+              console.log("[WebView Console] ->", data.substring(4));
             }
           }}
         />
@@ -107,6 +132,7 @@ export default function ReaderScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
+  containerDark: { backgroundColor: "#000" },
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
   webview: { flex: 1 },
   fallbackText: { textAlign: "center", marginTop: 50, color: "gray" },

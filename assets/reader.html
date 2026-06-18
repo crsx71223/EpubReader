@@ -1,113 +1,85 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.5/jszip.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"></script>
   <style>
-    body {
-      margin: 0;
-      padding: 0;
-      background-color: #fafafa;
-    }
-    #viewer {
-      width: 100vw;
-      height: 100vh;
-      overflow: hidden;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
-    #error {
-      color: red;
-      text-align: center;
-      display: none;
-      padding: 20px;
-      font-family: sans-serif;
-      font-weight: bold;
-    }
+    body { margin: 0; padding: 0; width: 100vw; height: 100vh; background-color: #ffffff; }
+    #viewer { width: 100%; height: 100%; }
   </style>
 </head>
 <body>
   <div id="viewer"></div>
-  <div id="error"></div>
+
   <script>
-    var rendition = null;
-    var startX = 0;
-    var startY = 0;
-    var SWIPE_THRESHOLD = 100;
+    window.currentSettings = null;
+    window.rendition = null;
 
-    function applyTheme(options) {
-      if (!rendition) return;
-      rendition.themes.default({
-        body: {
-          color: options.textColor || '#000000',
-          'font-size': (options.fontSize || 100) + '%',
-          'background-color': options.backgroundColor || '#fafafa',
-        }
-      });
-    }
-
-    function handleMessage(event) {
+    function applySettings() {
+      if (!window.currentSettings || !window.rendition) return;
+      const data = window.currentSettings;
       try {
-        var data = event.data;
-        if (!data || data === 'READY') return;
-
-        // Settings update from React Native
-        if (typeof data === 'string' && data.charAt(0) === '{') {
-          var msg = JSON.parse(data);
-          if (msg.type === 'THEME') { applyTheme(msg); return; }
-        }
-
-        // Book data — first load
-        var book = ePub(data, { encoding: 'base64' });
-        // force absulute dimensions render
-        rendition = book.renderTo('viewer', { 
-          width: window.innerWidth, 
-          height: window.innerHeight, 
-          spread: 'none',
-          manager: 'continuous',
-          flow: 'paginated'
-        });
-        rendition.display();
-
-        rendition.on('touchstart', function(e) {
-          startX = e.changedTouches[0].screenX;
-          startY = e.changedTouches[0].screenY;
-        });
-
-        rendition.on('touchend', function(e) {
-          var endX = e.changedTouches[0].screenX;
-          var endY = e.changedTouches[0].screenY;
-          var deltaX = endX - startX;
-          var deltaY = endY - startY;
-
-          // ignore vertical gestures
-          if (Math.abs(deltaY) > Math.abs(deltaX)) return;
-
-          if (Math.abs(deltaX) > SWIPE_THRESHOLD) {
-            deltaX < 0 ? rendition.next() : rendition.prev();
+          if (data.isDarkMode) {
+            window.rendition.themes.override('color', '#FFFFFF');
+            window.rendition.themes.override('background', '#000000');
+            document.body.style.backgroundColor = '#000000';
           } else {
-            var zone = endX / window.innerWidth;
-            if (zone < 0.33) rendition.prev();
-            else if (zone > 0.66) rendition.next();
+            window.rendition.themes.override('color', '#000000');
+            window.rendition.themes.override('background', '#FFFFFF');
+            document.body.style.backgroundColor = '#FFFFFF';
           }
-        });
-
-      } catch (e) {
-        document.getElementById('error').style.display = 'block';
-        document.getElementById('error').innerText = 'EPUB Engine Error: ' + e.message;
+          const font = data.currentFont === 'System' ? '-apple-system, system-ui, sans-serif' : data.currentFont;
+          window.rendition.themes.override('font-family', font);
+      } catch(e) {
+          console.error('Theme Error:', e);
       }
     }
 
-    window.addEventListener('message', handleMessage);
-    document.addEventListener('message', handleMessage);
+    function handleNativeMessage(event) {
+      try {
+        const msg = event.data;
+        if (typeof msg !== 'string') return;
 
-    window.onload = function() {
-      if (window.ReactNativeWebView) {
-        window.ReactNativeWebView.postMessage('READY');
+        if (msg.startsWith("SETTINGS:")) {
+          window.currentSettings = JSON.parse(msg.substring(9));
+          applySettings();
+        } 
+        else if (msg.startsWith("BOOK:")) {
+          const base64 = msg.substring(5);
+          
+          window.book = ePub(base64, { encoding: "base64" });
+          
+          window.rendition = window.book.renderTo("viewer", {
+            width: "100%",
+            height: "100%",
+            manager: "continuous",
+            flow: "scrolled",
+          });
+          
+          window.rendition.display().then(function() {
+            applySettings();
+          }).catch(function(err) {
+            console.error('Display Error:', err);
+          });
+        }
+      } catch (err) {
+        console.error('Listener Error:', err);
       }
-    };
+    }
+
+    window.addEventListener("message", handleNativeMessage);
+    document.addEventListener("message", handleNativeMessage);
+
+    function notifyReady() {
+      if (window.ReactNativeWebView) {
+        window.ReactNativeWebView.postMessage("READY");
+      } else {
+        setTimeout(notifyReady, 50);
+      }
+    }
+    notifyReady();
   </script>
 </body>
 </html>

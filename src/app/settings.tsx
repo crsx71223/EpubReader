@@ -1,3 +1,4 @@
+import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
 import { BorderRadius, Colors, Spacing, Typography } from "../constants/theme";
@@ -10,6 +11,18 @@ export default function SettingsScreen() {
   const { isDarkMode, toggleTheme, currentFont, setFont } = useSettingsStore();
   const theme = isDarkMode ? Colors.dark : Colors.light;
 
+  const handleToggleTheme = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    toggleTheme();
+  };
+
+  const handleSetFont = (font: string) => {
+    if (font !== currentFont) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setFont(font);
+    }
+  };
+
   return (
     <View style={styles.overlay}>
       <TouchableOpacity
@@ -19,13 +32,15 @@ export default function SettingsScreen() {
       />
 
       <View style={[styles.sheet, { backgroundColor: theme.background }]}>
+        <View style={styles.dragIndicator} />
+
         <Text style={[styles.title, { color: theme.text }]}>Settings</Text>
 
         <View style={[styles.card, { backgroundColor: theme.surface }]}>
           <Text style={[styles.label, { color: theme.text }]}>Dark Mode</Text>
           <Switch
             value={isDarkMode}
-            onValueChange={toggleTheme}
+            onValueChange={handleToggleTheme}
             trackColor={{ true: theme.primary }}
           />
         </View>
@@ -54,7 +69,7 @@ export default function SettingsScreen() {
                     borderColor: theme.primary,
                   },
                 ]}
-                onPress={() => setFont(font)}
+                onPress={() => handleSetFont(font)}
               >
                 <Text
                   style={[
@@ -100,6 +115,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 10,
     elevation: 10,
+  },
+  dragIndicator: {
+    width: 40,
+    height: 4,
+    backgroundColor: "#D7DBDF",
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: Spacing.lg,
   },
   title: {
     fontSize: Typography.sizes.xxl,

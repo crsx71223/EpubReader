@@ -40,7 +40,12 @@ export default function LibraryScreen() {
           data={books}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <BookCard title={item.title} uri={item.uri} />
+            <BookCard
+              title={item.title}
+              author={item.author}
+              coverUri={item.coverUri}
+              uri={item.uri}
+            />
           )}
         />
       )}

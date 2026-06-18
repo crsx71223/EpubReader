@@ -1,5 +1,6 @@
+import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Colors, Spacing } from "../constants/theme";
 import { Book, useBookStore } from "../store/bookStore";
 
@@ -29,7 +30,7 @@ export default function BookCard({
         <Image
           source={{ uri: coverUri }}
           style={styles.cover}
-          resizeMode="cover"
+          contentFit="cover"
         />
       ) : (
         <View style={styles.coverPlaceholder}>

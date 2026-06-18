@@ -8,6 +8,7 @@ export interface BookMetadata {
   coverUri: string | null;
 }
 
+const CACHE_VERSION = 4; // bump this whenever extraction logic changes
 const CACHE_PREFIX = "epub_meta:";
 const COVERS_DIR = `${FileSystem.cacheDirectory}epub-covers/`;
 
@@ -76,7 +77,14 @@ async function saveCover(
   bookUri: string,
 ): Promise<string | null> {
   const file = zip.file(coverPath) ?? zip.file(coverPath.replace(/^\//, ""));
-  if (!file) return null;
+  if (!file) {
+    console.log("[epub] cover file not found in zip at path:", coverPath);
+    console.log(
+      "[epub] available zip entries:",
+      Object.keys(zip.files).join(", "),
+    );
+    return null;
+  }
 
   await ensureCoversDir();
 
@@ -100,10 +108,22 @@ export async function extractEpubMetadata(
 ): Promise<BookMetadata> {
   const cacheKey = CACHE_PREFIX + uri;
 
+  // Return cached result only if it matches the current cache version
   try {
-    const cached = await AsyncStorage.getItem(cacheKey);
-    if (cached) return JSON.parse(cached) as BookMetadata;
+    const raw = await AsyncStorage.getItem(cacheKey);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed._v === CACHE_VERSION) {
+        return {
+          title: parsed.title,
+          author: parsed.author,
+          coverUri: parsed.coverUri,
+        };
+      }
+    }
   } catch {}
+
+  console.log("[epub] extracting:", fallbackTitle);
 
   try {
     const base64 = await FileSystem.readAsStringAsync(uri, {
@@ -116,6 +136,7 @@ export async function extractEpubMetadata(
     if (!containerFile) throw new Error("Missing container.xml");
 
     const opfPath = getOpfPath(await containerFile.async("string"));
+    console.log("[epub] opfPath:", opfPath);
     if (!opfPath) throw new Error("OPF path not found");
 
     const opfFile = zip.file(opfPath);
@@ -124,25 +145,37 @@ export async function extractEpubMetadata(
     const opfXml = await opfFile.async("string");
     const title = extractDcTag(opfXml, "title") ?? fallbackTitle;
     const author = extractDcTag(opfXml, "creator");
+    const coverHref = getCoverHref(opfXml);
+    console.log(
+      "[epub] title:",
+      title,
+      "| author:",
+      author,
+      "| coverHref:",
+      coverHref,
+    );
 
-    // Resolve cover path relative to the OPF file's directory
     const opfDir = opfPath.includes("/")
       ? opfPath.slice(0, opfPath.lastIndexOf("/") + 1)
       : "";
-    const coverHref = getCoverHref(opfXml);
     const coverPath = coverHref
       ? coverHref.startsWith("/")
         ? coverHref.slice(1)
         : opfDir + coverHref
       : null;
+    console.log("[epub] resolved coverPath:", coverPath);
 
     const coverUri = coverPath ? await saveCover(zip, coverPath, uri) : null;
+    console.log("[epub] coverUri:", coverUri);
 
     const metadata: BookMetadata = { title, author, coverUri };
-    await AsyncStorage.setItem(cacheKey, JSON.stringify(metadata));
+    await AsyncStorage.setItem(
+      cacheKey,
+      JSON.stringify({ _v: CACHE_VERSION, ...metadata }),
+    );
     return metadata;
   } catch (err) {
-    console.warn(`Metadata extraction failed for ${uri}:`, err);
+    console.warn("[epub] extraction failed for", fallbackTitle, ":", err);
     return { title: fallbackTitle, author: null, coverUri: null };
   }
 }

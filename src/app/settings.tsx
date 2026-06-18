@@ -1,23 +1,25 @@
 import { StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
+import { BorderRadius, Colors, Spacing, Typography } from "../constants/theme";
 import { useSettingsStore } from "../store/settingsStore";
 
 const AVAILABLE_FONTS = ["System", "Serif", "Monospace"];
 
 export default function SettingsScreen() {
   const { isDarkMode, toggleTheme, currentFont, setFont } = useSettingsStore();
+  const theme = isDarkMode ? Colors.dark : Colors.light;
 
   return (
-    <View style={[styles.container, isDarkMode && styles.containerDark]}>
-      <Text style={[styles.title, isDarkMode && styles.textDark]}>
-        Settings
-      </Text>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <Text style={[styles.title, { color: theme.text }]}>Settings</Text>
 
       {/* Theme Toggle */}
-      <View style={[styles.card, isDarkMode && styles.cardDark]}>
-        <Text style={[styles.label, isDarkMode && styles.textDark]}>
-          Dark Mode
-        </Text>
-        <Switch value={isDarkMode} onValueChange={toggleTheme} />
+      <View style={[styles.card, { backgroundColor: theme.surface }]}>
+        <Text style={[styles.label, { color: theme.text }]}>Dark Mode</Text>
+        <Switch
+          value={isDarkMode}
+          onValueChange={toggleTheme}
+          trackColor={{ true: theme.primary }}
+        />
       </View>
 
       {/* Font Selection */}
@@ -25,15 +27,11 @@ export default function SettingsScreen() {
         style={[
           styles.card,
           styles.cardVertical,
-          isDarkMode && styles.cardDark,
+          { backgroundColor: theme.surface },
         ]}
       >
         <Text
-          style={[
-            styles.label,
-            styles.marginBottom,
-            isDarkMode && styles.textDark,
-          ]}
+          style={[styles.label, styles.marginBottom, { color: theme.text }]}
         >
           Reader Font
         </Text>
@@ -43,16 +41,22 @@ export default function SettingsScreen() {
               key={font}
               style={[
                 styles.fontButton,
-                currentFont === font && styles.fontButtonActive,
-                isDarkMode && currentFont !== font && styles.fontButtonDark,
+                { borderColor: theme.border },
+                currentFont === font && {
+                  backgroundColor: theme.primary,
+                  borderColor: theme.primary,
+                },
               ]}
               onPress={() => setFont(font)}
             >
               <Text
                 style={[
                   styles.fontButtonText,
-                  currentFont === font && styles.fontButtonTextActive,
-                  isDarkMode && currentFont !== font && styles.textDark,
+                  { color: theme.text },
+                  currentFont === font && {
+                    color: theme.textInverse,
+                    fontWeight: Typography.weights.bold,
+                  },
                 ]}
               >
                 {font}
@@ -66,33 +70,32 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: "#F2F2F7" },
-  containerDark: { backgroundColor: "#000000" },
-  title: { fontSize: 32, fontWeight: "bold", marginBottom: 24, color: "#000" },
-  textDark: { color: "#FFFFFF" },
+  container: { flex: 1, padding: Spacing.xl },
+  title: {
+    fontSize: Typography.sizes.xxxl,
+    fontWeight: Typography.weights.bold,
+    marginBottom: Spacing.xl,
+  },
   card: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: "#FFF",
-    padding: 16,
-    borderRadius: 10,
-    marginBottom: 16,
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    marginBottom: Spacing.lg,
   },
   cardVertical: { flexDirection: "column", alignItems: "flex-start" },
-  cardDark: { backgroundColor: "#1C1C1E" },
-  label: { fontSize: 16, fontWeight: "500", color: "#000" },
-  marginBottom: { marginBottom: 16 },
-  fontRow: { flexDirection: "row", gap: 10, flexWrap: "wrap" },
-  fontButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#D1D1D6",
+  label: {
+    fontSize: Typography.sizes.md,
+    fontWeight: Typography.weights.medium,
   },
-  fontButtonDark: { borderColor: "#3A3A3C" },
-  fontButtonActive: { backgroundColor: "#007AFF", borderColor: "#007AFF" },
-  fontButtonText: { color: "#000" },
-  fontButtonTextActive: { color: "#FFF", fontWeight: "bold" },
+  marginBottom: { marginBottom: Spacing.lg },
+  fontRow: { flexDirection: "row", gap: Spacing.sm, flexWrap: "wrap" },
+  fontButton: {
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+  },
+  fontButtonText: { fontSize: Typography.sizes.md },
 });

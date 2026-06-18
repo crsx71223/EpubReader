@@ -1,8 +1,16 @@
+import { Ionicons } from "@expo/vector-icons";
 import { Asset } from "expo-asset";
 import * as FileSystem from "expo-file-system/legacy";
-import { Stack } from "expo-router";
+import { Link, Stack } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { WebView } from "react-native-webview";
 import { useBookStore } from "../store/bookStore";
 
@@ -54,7 +62,25 @@ export default function ReaderScreen() {
 
   return (
     <View style={styles.container}>
-      <Stack.Screen options={{ title }} />
+      <Stack.Screen
+        options={{
+          title: title,
+          headerRight: () => (
+            <Link href="/settings" asChild>
+              <TouchableOpacity
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons
+                  name="settings-outline"
+                  size={40}
+                  color="black"
+                  style={{ marginRight: 15 }}
+                />
+              </TouchableOpacity>
+            </Link>
+          ),
+        }}
+      />
 
       {!isReady ? (
         <View style={styles.loadingContainer}>

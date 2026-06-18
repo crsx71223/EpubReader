@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Asset } from "expo-asset";
 import * as FileSystem from "expo-file-system/legacy";
+import * as Haptics from "expo-haptics";
 import { Link, Stack, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -53,6 +54,7 @@ export default function ReaderScreen() {
         setBase64Book(base64);
       } catch (error) {
         console.error("Failed to load book:", error);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         Alert.alert("Error", "Could not load the book file.");
       }
     }
@@ -71,6 +73,15 @@ export default function ReaderScreen() {
       webViewRef.current.postMessage(settingsPayload);
     }
   }, [isDarkMode, currentFont, theme]);
+
+  const handleBackPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.back();
+  };
+
+  const handleSettingsPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
 
   if (!uri) {
     return (
@@ -98,7 +109,7 @@ export default function ReaderScreen() {
         ]}
       >
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={handleBackPress}
           hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
           style={styles.headerButton}
         >
@@ -114,10 +125,11 @@ export default function ReaderScreen() {
 
         <Link href="/settings" asChild>
           <TouchableOpacity
+            onPress={handleSettingsPress}
             hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
             style={{ ...styles.headerButton, alignItems: "flex-end" }}
           >
-            <Ionicons name="settings-outline" size={40} color={theme.text} />
+            <Ionicons name="settings-outline" size={24} color={theme.text} />
           </TouchableOpacity>
         </Link>
       </View>

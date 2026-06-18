@@ -1,8 +1,19 @@
 import { Stack } from "expo-router";
+import { Colors } from "../constants/theme";
+import { useSettingsStore } from "../store/settingsStore";
 
 export default function RootLayout() {
+  const { isDarkMode } = useSettingsStore();
+  const theme = isDarkMode ? Colors.dark : Colors.light;
+
   return (
-    <Stack>
+    <Stack
+      screenOptions={{
+        headerStyle: { backgroundColor: theme.background },
+        headerTintColor: theme.text,
+        headerShadowVisible: false,
+      }}
+    >
       {/* Library */}
       <Stack.Screen
         name="index"

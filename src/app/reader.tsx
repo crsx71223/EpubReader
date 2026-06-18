@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { WebView } from "react-native-webview";
+import { Colors, Spacing, Typography } from "../constants/theme";
 import { useBookStore } from "../store/bookStore";
 import { useSettingsStore } from "../store/settingsStore";
 
@@ -21,6 +22,7 @@ export default function ReaderScreen() {
   const title = books.find((b) => b.uri === uri)?.title || "Reader";
 
   const { isDarkMode, currentFont } = useSettingsStore();
+  const theme = isDarkMode ? Colors.dark : Colors.light;
 
   const [htmlContent, setHtmlContent] = useState<string | null>(null);
   const [base64Book, setBase64Book] = useState<string | null>(null);
@@ -56,15 +58,22 @@ export default function ReaderScreen() {
   useEffect(() => {
     if (webViewRef.current) {
       const settingsPayload =
-        "SETTINGS:" + JSON.stringify({ isDarkMode, currentFont });
+        "SETTINGS:" +
+        JSON.stringify({
+          isDarkMode,
+          currentFont,
+          colors: { text: theme.text, background: theme.background },
+        });
       webViewRef.current.postMessage(settingsPayload);
     }
-  }, [isDarkMode, currentFont]);
+  }, [isDarkMode, currentFont, theme]);
 
   if (!uri) {
     return (
-      <View style={[styles.container, isDarkMode && styles.containerDark]}>
-        <Text style={styles.fallbackText}>No book selected.</Text>
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
+        <Text style={[styles.fallbackText, { color: theme.textSecondary }]}>
+          No book selected.
+        </Text>
       </View>
     );
   }
@@ -72,12 +81,12 @@ export default function ReaderScreen() {
   const isReady = htmlContent && base64Book;
 
   return (
-    <View style={[styles.container, isDarkMode && styles.containerDark]}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <Stack.Screen
         options={{
           title: title,
-          headerStyle: { backgroundColor: isDarkMode ? "#000" : "#fff" },
-          headerTintColor: isDarkMode ? "#fff" : "#000",
+          headerStyle: { backgroundColor: theme.background },
+          headerTintColor: theme.text,
           headerRight: () => (
             <Link href="/settings" asChild>
               <TouchableOpacity
@@ -86,8 +95,8 @@ export default function ReaderScreen() {
                 <Ionicons
                   name="settings-outline"
                   size={24}
-                  color={isDarkMode ? "#fff" : "#000"}
-                  style={{ marginRight: 15 }}
+                  color={theme.text}
+                  style={{ marginRight: Spacing.lg }}
                 />
               </TouchableOpacity>
             </Link>
@@ -97,7 +106,7 @@ export default function ReaderScreen() {
 
       {!isReady ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#007AFF" />
+          <ActivityIndicator size="large" color={theme.primary} />
         </View>
       ) : (
         <WebView
@@ -118,7 +127,12 @@ export default function ReaderScreen() {
               webViewRef.current?.postMessage("BOOK:" + base64Book);
 
               const initialSettings =
-                "SETTINGS:" + JSON.stringify({ isDarkMode, currentFont });
+                "SETTINGS:" +
+                JSON.stringify({
+                  isDarkMode,
+                  currentFont,
+                  colors: { text: theme.text, background: theme.background },
+                });
               webViewRef.current?.postMessage(initialSettings);
             } else if (data.startsWith("LOG:")) {
               console.log("[WebView Console] ->", data.substring(4));
@@ -131,9 +145,12 @@ export default function ReaderScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
-  containerDark: { backgroundColor: "#000" },
+  container: { flex: 1 },
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
-  webview: { flex: 1 },
-  fallbackText: { textAlign: "center", marginTop: 50, color: "gray" },
+  webview: { flex: 1, backgroundColor: "transparent" },
+  fallbackText: {
+    textAlign: "center",
+    marginTop: Spacing.xxxl,
+    fontSize: Typography.sizes.md,
+  },
 });

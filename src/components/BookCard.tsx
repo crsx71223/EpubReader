@@ -1,8 +1,15 @@
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { Colors, Spacing } from "../constants/theme";
+import {
+  BorderRadius,
+  Colors,
+  Shadows,
+  Spacing,
+  Typography,
+} from "../constants/theme";
 import { Book, useBookStore } from "../store/bookStore";
+import { useSettingsStore } from "../store/settingsStore";
 
 type BookCardProps = Pick<Book, "title" | "author" | "coverUri" | "uri">;
 
@@ -14,6 +21,10 @@ export default function BookCard({
 }: BookCardProps) {
   const router = useRouter();
   const setCurrentBook = useBookStore((state) => state.setCurrentBook);
+  const { isDarkMode } = useSettingsStore();
+
+  const theme = isDarkMode ? Colors.dark : Colors.light;
+  const shadow = isDarkMode ? Shadows.dark.sm : Shadows.light.sm;
 
   const handlePress = () => {
     setCurrentBook(uri);
@@ -22,28 +33,36 @@ export default function BookCard({
 
   return (
     <TouchableOpacity
-      style={styles.card}
+      style={[styles.card, { backgroundColor: theme.surface }, shadow]}
       onPress={handlePress}
       activeOpacity={0.7}
     >
       {coverUri ? (
         <Image
           source={{ uri: coverUri }}
-          style={styles.cover}
+          style={[styles.cover, { backgroundColor: theme.border }]}
           contentFit="cover"
         />
       ) : (
-        <View style={styles.coverPlaceholder}>
+        <View
+          style={[
+            styles.coverPlaceholder,
+            { backgroundColor: theme.background, borderColor: theme.border },
+          ]}
+        >
           <Text style={styles.placeholderIcon}>📖</Text>
         </View>
       )}
 
       <View style={styles.info}>
-        <Text style={styles.title} numberOfLines={3}>
+        <Text style={[styles.title, { color: theme.text }]} numberOfLines={3}>
           {title}
         </Text>
         {author && (
-          <Text style={styles.author} numberOfLines={1}>
+          <Text
+            style={[styles.author, { color: theme.textSecondary }]}
+            numberOfLines={1}
+          >
             {author}
           </Text>
         )}
@@ -56,48 +75,26 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.light.surface,
-    borderRadius: 8,
-    marginBottom: Spacing.two,
-    padding: Spacing.three,
-    gap: Spacing.three,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 3,
-    elevation: 2,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.sm,
+    padding: Spacing.md,
+    gap: Spacing.md,
   },
-  cover: {
-    width: 60,
-    height: 88,
-    borderRadius: 4,
-    backgroundColor: Colors.light.border,
-  },
+  cover: { width: 60, height: 88, borderRadius: BorderRadius.sm },
   coverPlaceholder: {
     width: 60,
     height: 88,
-    borderRadius: 4,
-    backgroundColor: Colors.light.background,
+    borderRadius: BorderRadius.sm,
     borderWidth: 1,
-    borderColor: Colors.light.border,
     justifyContent: "center",
     alignItems: "center",
   },
-  placeholderIcon: {
-    fontSize: 24,
-  },
-  info: {
-    flex: 1,
-    gap: Spacing.one,
-  },
+  placeholderIcon: { fontSize: Typography.sizes.xxl },
+  info: { flex: 1, gap: Spacing.xs },
   title: {
-    fontSize: 15,
-    fontWeight: "500",
-    color: Colors.light.text,
-    lineHeight: 20,
+    fontSize: Typography.sizes.md,
+    fontWeight: Typography.weights.medium,
+    lineHeight: Typography.lineHeights.md,
   },
-  author: {
-    fontSize: 13,
-    color: Colors.light.textSecondary,
-  },
+  author: { fontSize: Typography.sizes.sm },
 });

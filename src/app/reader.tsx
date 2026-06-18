@@ -94,7 +94,7 @@ export default function ReaderScreen() {
               >
                 <Ionicons
                   name="settings-outline"
-                  size={24}
+                  size={40}
                   color={theme.text}
                   style={{ marginRight: Spacing.lg }}
                 />

@@ -14,22 +14,23 @@ export default function RootLayout() {
         headerShadowVisible: false,
       }}
     >
-      {/* Library */}
       <Stack.Screen
         name="index"
         options={{ headerShown: false, animation: "none" }}
       />
 
-      {/* Reader */}
       <Stack.Screen
         name="reader"
         options={{ title: "Reader", animation: "none" }}
       />
 
-      {/* Settings */}
       <Stack.Screen
         name="settings"
-        options={{ title: "Settings", animation: "none" }}
+        options={{
+          presentation: "transparentModal",
+          animation: "fade",
+          headerShown: false,
+        }}
       />
     </Stack>
   );

@@ -19,8 +19,6 @@ export default function SettingsScreen() {
       />
 
       <View style={[styles.sheet, { backgroundColor: theme.background }]}>
-        <View style={styles.dragIndicator} />
-
         <Text style={[styles.title, { color: theme.text }]}>Settings</Text>
 
         <View style={[styles.card, { backgroundColor: theme.surface }]}>
@@ -102,14 +100,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 10,
     elevation: 10,
-  },
-  dragIndicator: {
-    width: 40,
-    height: 4,
-    backgroundColor: "#D7DBDF",
-    borderRadius: 2,
-    alignSelf: "center",
-    marginBottom: Spacing.lg,
   },
   title: {
     fontSize: Typography.sizes.xxl,

@@ -35,7 +35,7 @@
     var rendition = null;
     var startX = 0;
     var startY = 0;
-    var SWIPE_THRESHOLD = 40;
+    var SWIPE_THRESHOLD = 100;
 
     function applyTheme(options) {
       if (!rendition) return;
@@ -61,17 +61,24 @@
 
         // Book data — first load
         var book = ePub(data, { encoding: 'base64' });
-        rendition = book.renderTo('viewer', { width: '100%', height: '100%', spread: 'none' });
+        // force absulute dimensions render
+        rendition = book.renderTo('viewer', { 
+          width: window.innerWidth, 
+          height: window.innerHeight, 
+          spread: 'none',
+          manager: 'continuous',
+          flow: 'paginated'
+        });
         rendition.display();
 
         rendition.on('touchstart', function(e) {
-          startX = e.changedTouches[0].clientX;
-          startY = e.changedTouches[0].clientY;
+          startX = e.changedTouches[0].screenX;
+          startY = e.changedTouches[0].screenY;
         });
 
         rendition.on('touchend', function(e) {
-          var endX = e.changedTouches[0].clientX;
-          var endY = e.changedTouches[0].clientY;
+          var endX = e.changedTouches[0].screenX;
+          var endY = e.changedTouches[0].screenY;
           var deltaX = endX - startX;
           var deltaY = endY - startY;
 

@@ -78,12 +78,33 @@ src/constants/epubTemplate.ts
 src/constants/theme.ts
 src/global.css
 src/store/bookStore.ts
+src/utils/epubMetadata.ts
 src/utils/fileSystem.ts
 tsconfig.json
 </directory_structure>
 
 <files>
 This section contains the contents of the repository's files.
+
+<file path=".claude/settings.json">
+{
+  "enabledPlugins": {
+    "expo@claude-plugins-official": true
+  }
+}
+</file>
+
+<file path="AGENTS.md">
+# Expo HAS CHANGED
+
+Read the exact versioned docs at https://docs.expo.dev/versions/v56.0.0/ before writing any code.
+</file>
+
+<file path="assets/expo.icon/Assets/expo-symbol 2.svg">
+<svg width="652" height="606" viewBox="0 0 652 606" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M353.554 0H298.446C273.006 0 249.684 14.6347 237.962 37.9539L4.37994 502.646C-1.04325 513.435 -1.45067 526.178 3.2716 537.313L22.6123 582.918C34.6475 611.297 72.5404 614.156 88.4414 587.885L309.863 222.063C313.34 216.317 319.439 212.826 326 212.826C332.561 212.826 338.659 216.317 342.137 222.063L563.559 587.885C579.46 614.156 617.352 611.297 629.388 582.918L648.728 537.313C653.451 526.178 653.043 513.435 647.62 502.646L414.038 37.9539C402.316 14.6347 378.994 0 353.554 0Z" fill="white"/>
+</svg>
+</file>
 
 <file path="assets/reader.html">
 <!DOCTYPE html>
@@ -194,35 +215,6 @@ This section contains the contents of the repository's files.
 </html>
 </file>
 
-<file path="metro.config.js">
-const { getDefaultConfig } = require('expo/metro-config');
-
-const config = getDefaultConfig(__dirname);
-config.resolver.assetExts.push('html');
-
-module.exports = config;
-</file>
-
-<file path=".claude/settings.json">
-{
-  "enabledPlugins": {
-    "expo@claude-plugins-official": true
-  }
-}
-</file>
-
-<file path="AGENTS.md">
-# Expo HAS CHANGED
-
-Read the exact versioned docs at https://docs.expo.dev/versions/v56.0.0/ before writing any code.
-</file>
-
-<file path="assets/expo.icon/Assets/expo-symbol 2.svg">
-<svg width="652" height="606" viewBox="0 0 652 606" fill="none" xmlns="http://www.w3.org/2000/svg">
-<path d="M353.554 0H298.446C273.006 0 249.684 14.6347 237.962 37.9539L4.37994 502.646C-1.04325 513.435 -1.45067 526.178 3.2716 537.313L22.6123 582.918C34.6475 611.297 72.5404 614.156 88.4414 587.885L309.863 222.063C313.34 216.317 319.439 212.826 326 212.826C332.561 212.826 338.659 216.317 342.137 222.063L563.559 587.885C579.46 614.156 617.352 611.297 629.388 582.918L648.728 537.313C653.451 526.178 653.043 513.435 647.62 502.646L414.038 37.9539C402.316 14.6347 378.994 0 353.554 0Z" fill="white"/>
-</svg>
-</file>
-
 <file path="CLAUDE.md">
 @AGENTS.md
 </file>
@@ -279,6 +271,15 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+</file>
+
+<file path="metro.config.js">
+const { getDefaultConfig } = require('expo/metro-config');
+
+const config = getDefaultConfig(__dirname);
+config.resolver.assetExts.push('html');
+
+module.exports = config;
 </file>
 
 <file path="README.md">
@@ -481,53 +482,195 @@ export const EPUB_HTML_TEMPLATE = `
 }
 </file>
 
-<file path=".gitignore">
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+<file path="src/utils/epubMetadata.ts">
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as FileSystem from "expo-file-system/legacy";
+import JSZip from "jszip";
 
-# dependencies
-node_modules/
+export interface BookMetadata {
+  title: string;
+  author: string | null;
+  coverUri: string | null;
+}
 
-# Expo
-.expo/
-dist/
-web-build/
-expo-env.d.ts
+const CACHE_VERSION = 2; // bump this whenever extraction logic changes
+const CACHE_PREFIX = "epub_meta:";
+const COVERS_DIR = `${FileSystem.cacheDirectory}epub-covers/`;
 
-# Native
-.kotlin/
-*.orig.*
-*.jks
-*.p8
-*.p12
-*.key
-*.mobileprovision
+// ─── XML helpers ─────────────────────────────────────────────────────────────
 
-# Metro
-.metro-health-check*
+function getOpfPath(containerXml: string): string | null {
+  return containerXml.match(/full-path="([^"]+)"/)?.[1] ?? null;
+}
 
-# debug
-npm-debug.*
-yarn-debug.*
-yarn-error.*
+function extractDcTag(opfXml: string, tag: string): string | null {
+  const raw = opfXml.match(
+    new RegExp(`<dc:${tag}[^>]*>([^<]+)<\\/dc:${tag}>`, "i"),
+  )?.[1];
+  return (
+    raw
+      ?.trim()
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">") ?? null
+  );
+}
 
-# macOS
-.DS_Store
-*.pem
+function getCoverHref(opfXml: string): string | null {
+  // EPUB 2: <meta name="cover" content="some-id"/> then find item with that id
+  const metaMatch = opfXml.match(
+    /<meta\s+name=["']cover["']\s+content=["']([^"']+)["']|<meta\s+content=["']([^"']+)["']\s+name=["']cover["']/i,
+  );
+  const coverId = metaMatch?.[1] ?? metaMatch?.[2];
+  if (coverId) {
+    const itemMatch = opfXml.match(
+      new RegExp(
+        `<item[^>]+id=["']${coverId}["'][^>]+href=["']([^"']+)["']` +
+          `|<item[^>]+href=["']([^"']+)["'][^>]+id=["']${coverId}["']`,
+        "i",
+      ),
+    );
+    const href = itemMatch?.[1] ?? itemMatch?.[2];
+    if (href) return href;
+  }
 
-# local env files
-.env*.local
+  // EPUB 2 fallback: item whose id is literally "cover"
+  const byId = opfXml.match(
+    /<item[^>]+id=["']cover["'][^>]+href=["']([^"']+)["']|<item[^>]+href=["']([^"']+)["'][^>]+id=["']cover["']/i,
+  );
+  if (byId) return byId[1] ?? byId[2] ?? null;
 
-# typescript
-*.tsbuildinfo
+  // EPUB 3: <item properties="cover-image" href="..."/>
+  const epub3 = opfXml.match(
+    /<item[^>]+properties=["']cover-image["'][^>]+href=["']([^"']+)["']|<item[^>]+href=["']([^"']+)["'][^>]+properties=["']cover-image["']/i,
+  );
+  return epub3?.[1] ?? epub3?.[2] ?? null;
+}
 
-example
+// ─── Cover image ─────────────────────────────────────────────────────────────
 
-# generated native folders
-/ios
-/android
+async function ensureCoversDir() {
+  const info = await FileSystem.getInfoAsync(COVERS_DIR);
+  if (!info.exists) {
+    await FileSystem.makeDirectoryAsync(COVERS_DIR, { intermediates: true });
+  }
+}
 
-# for repomix
-repomix-instruction.xml
+async function saveCover(
+  zip: JSZip,
+  coverPath: string,
+  bookUri: string,
+): Promise<string | null> {
+  const file = zip.file(coverPath) ?? zip.file(coverPath.replace(/^\//, ""));
+  if (!file) {
+    console.log("[epub] cover file not found in zip at path:", coverPath);
+    console.log(
+      "[epub] available zip entries:",
+      Object.keys(zip.files).join(", "),
+    );
+    return null;
+  }
+
+  await ensureCoversDir();
+
+  const safeId = bookUri.replace(/[^a-zA-Z0-9]/g, "_").slice(-50);
+  const ext = coverPath.split(".").pop()?.split("?")[0] ?? "jpg";
+  const destPath = `${COVERS_DIR}${safeId}.${ext}`;
+
+  const base64 = await file.async("base64");
+  await FileSystem.writeAsStringAsync(destPath, base64, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+
+  return destPath;
+}
+
+// ─── Public API ──────────────────────────────────────────────────────────────
+
+export async function extractEpubMetadata(
+  uri: string,
+  fallbackTitle: string,
+): Promise<BookMetadata> {
+  const cacheKey = CACHE_PREFIX + uri;
+
+  // Return cached result only if it matches the current cache version
+  try {
+    const raw = await AsyncStorage.getItem(cacheKey);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed._v === CACHE_VERSION) {
+        return {
+          title: parsed.title,
+          author: parsed.author,
+          coverUri: parsed.coverUri,
+        };
+      }
+    }
+  } catch {}
+
+  console.log("[epub] extracting:", fallbackTitle);
+
+  try {
+    const base64 = await FileSystem.readAsStringAsync(uri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+
+    const zip = await JSZip.loadAsync(base64, { base64: true });
+
+    const containerFile = zip.file("META-INF/container.xml");
+    if (!containerFile) throw new Error("Missing container.xml");
+
+    const opfPath = getOpfPath(await containerFile.async("string"));
+    console.log("[epub] opfPath:", opfPath);
+    if (!opfPath) throw new Error("OPF path not found");
+
+    const opfFile = zip.file(opfPath);
+    if (!opfFile) throw new Error(`OPF not found at ${opfPath}`);
+
+    const opfXml = await opfFile.async("string");
+    const title = extractDcTag(opfXml, "title") ?? fallbackTitle;
+    const author = extractDcTag(opfXml, "creator");
+    const coverHref = getCoverHref(opfXml);
+    console.log(
+      "[epub] title:",
+      title,
+      "| author:",
+      author,
+      "| coverHref:",
+      coverHref,
+    );
+
+    const opfDir = opfPath.includes("/")
+      ? opfPath.slice(0, opfPath.lastIndexOf("/") + 1)
+      : "";
+    const coverPath = coverHref
+      ? coverHref.startsWith("/")
+        ? coverHref.slice(1)
+        : opfDir + coverHref
+      : null;
+    console.log("[epub] resolved coverPath:", coverPath);
+
+    const coverUri = coverPath ? await saveCover(zip, coverPath, uri) : null;
+    console.log("[epub] coverUri:", coverUri);
+
+    const metadata: BookMetadata = { title, author, coverUri };
+    await AsyncStorage.setItem(
+      cacheKey,
+      JSON.stringify({ _v: CACHE_VERSION, ...metadata }),
+    );
+    return metadata;
+  } catch (err) {
+    console.warn("[epub] extraction failed for", fallbackTitle, ":", err);
+    return { title: fallbackTitle, author: null, coverUri: null };
+  }
+}
+
+export async function clearMetadataCache(): Promise<void> {
+  const keys = await AsyncStorage.getAllKeys();
+  const metaKeys = keys.filter((k) => k.startsWith(CACHE_PREFIX));
+  await AsyncStorage.multiRemove(metaKeys);
+  await FileSystem.deleteAsync(COVERS_DIR, { idempotent: true });
+}
 </file>
 
 <file path="assets/expo.icon/icon.json">
@@ -590,6 +733,70 @@ module.exports = defineConfig([
 ]);
 </file>
 
+<file path="tsconfig.json">
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "paths": {
+      "@/*": ["./src/*"],
+      "@/assets/*": ["./assets/*"]
+    }
+  },
+  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"]
+}
+</file>
+
+<file path=".gitignore">
+# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+
+# dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Metro
+.metro-health-check*
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS
+.DS_Store
+*.pem
+
+# local env files
+.env*.local
+
+# typescript
+*.tsbuildinfo
+
+example
+
+# generated native folders
+/ios
+/android
+
+# for repomix
+repomix-instruction.xml
+repomix-output.xml
+</file>
+
 <file path="src/app/reader.tsx">
 import { Asset } from "expo-asset";
 import * as FileSystem from "expo-file-system/legacy";
@@ -604,14 +811,19 @@ export default function ReaderScreen() {
   const books = useBookStore((state) => state.books);
   const title = books.find((b) => b.uri === uri)?.title || "Reader";
 
-  const [htmlUri, setHtmlUri] = useState<string | null>(null);
+  const [htmlContent, setHtmlContent] = useState<string | null>(null);
   const [base64Book, setBase64Book] = useState<string | null>(null);
   const webViewRef = useRef<WebView>(null);
 
   useEffect(() => {
-    Asset.loadAsync(require("../../assets/reader.html")).then(([asset]) => {
-      setHtmlUri(asset.localUri);
-    });
+    async function loadHtml() {
+      const [asset] = await Asset.loadAsync(
+        require("../../assets/reader.html"),
+      );
+      const content = await FileSystem.readAsStringAsync(asset.localUri!);
+      setHtmlContent(content);
+    }
+    loadHtml();
   }, []);
 
   useEffect(() => {
@@ -627,7 +839,6 @@ export default function ReaderScreen() {
         Alert.alert("Error", "Could not load the book file.");
       }
     }
-
     loadBookData();
   }, [uri]);
 
@@ -639,7 +850,7 @@ export default function ReaderScreen() {
     );
   }
 
-  const isReady = htmlUri && base64Book;
+  const isReady = htmlContent && base64Book;
 
   return (
     <View style={styles.container}>
@@ -653,7 +864,7 @@ export default function ReaderScreen() {
         <WebView
           ref={webViewRef}
           originWhitelist={["*"]}
-          source={{ uri: htmlUri }}
+          source={{ html: htmlContent }}
           style={styles.webview}
           javaScriptEnabled={true}
           domStorageEnabled={true}
@@ -673,183 +884,6 @@ const styles = StyleSheet.create({
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
   webview: { flex: 1 },
   fallbackText: { textAlign: "center", marginTop: 50, color: "gray" },
-});
-</file>
-
-<file path="src/store/bookStore.ts">
-import { create } from "zustand";
-import { getLibraryFiles } from "../utils/fileSystem";
-
-interface Book {
-  id: string;
-  title: string;
-  uri: string;
-}
-
-interface BookStore {
-  books: Book[];
-  isLoading: boolean;
-  currentBookUri: string | null;
-  loadBooks: () => Promise<void>;
-  setCurrentBook: (uri: string | null) => void;
-}
-
-export const useBookStore = create<BookStore>((set) => ({
-  books: [],
-  isLoading: false,
-  currentBookUri: null,
-
-  loadBooks: async () => {
-    set({ isLoading: true });
-    try {
-      const files = await getLibraryFiles();
-      set({ books: files, isLoading: false });
-    } catch (error) {
-      console.error("Failed to load books into store:", error);
-      set({ books: [], isLoading: false });
-    }
-  },
-
-  setCurrentBook: (uri) => set({ currentBookUri: uri }),
-}));
-</file>
-
-<file path="src/utils/fileSystem.ts">
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as FileSystem from "expo-file-system/legacy";
-import { Platform } from "react-native";
-
-const ANDROID_FOLDER_KEY = "android_library_folder";
-
-export async function getLibraryFiles() {
-  try {
-    let targetDirectory = "";
-
-    // iOS: Read the exposed document directory
-    if (Platform.OS === "ios") {
-      targetDirectory = FileSystem.documentDirectory || "";
-      if (!targetDirectory) return [];
-    }
-
-    // Android: Storage Access Framework
-    else if (Platform.OS === "android") {
-      const savedUri = await AsyncStorage.getItem(ANDROID_FOLDER_KEY);
-
-      if (savedUri) {
-        targetDirectory = savedUri;
-      } else {
-        const permissions =
-          await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
-
-        if (!permissions.granted) {
-          return [];
-        }
-
-        targetDirectory = permissions.directoryUri;
-        await AsyncStorage.setItem(ANDROID_FOLDER_KEY, targetDirectory);
-      }
-    }
-
-    // Read directory and filter EPUBs
-    let allFiles: string[] = [];
-
-    if (Platform.OS === "android") {
-      allFiles =
-        await FileSystem.StorageAccessFramework.readDirectoryAsync(
-          targetDirectory,
-        );
-    } else {
-      allFiles = await FileSystem.readDirectoryAsync(targetDirectory);
-    }
-
-    const epubs = allFiles
-      .filter((fileName) => fileName.endsWith(".epub"))
-      .map((fileUri) => {
-        const fullUri =
-          Platform.OS === "android" ? fileUri : targetDirectory + fileUri;
-        const titleMatch =
-          fileUri.split("/").pop()?.replace(".epub", "") || "Unknown Title";
-
-        return {
-          id: fullUri,
-          title: decodeURIComponent(titleMatch),
-          uri: fullUri,
-        };
-      });
-
-    return epubs;
-  } catch (error) {
-    console.error("Failed to read library directory:", error);
-    return [];
-  }
-}
-</file>
-
-<file path="tsconfig.json">
-{
-  "extends": "expo/tsconfig.base",
-  "compilerOptions": {
-    "strict": true,
-    "paths": {
-      "@/*": ["./src/*"],
-      "@/assets/*": ["./assets/*"]
-    }
-  },
-  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"]
-}
-</file>
-
-<file path="src/components/BookCard.tsx">
-import { useRouter } from "expo-router";
-import { StyleSheet, Text, TouchableOpacity } from "react-native";
-import { useBookStore } from "../store/bookStore";
-
-interface BookCardProps {
-  title: string;
-  uri: string;
-}
-
-export default function BookCard({ title, uri }: BookCardProps) {
-  const router = useRouter();
-  const setCurrentBook = useBookStore((state) => state.setCurrentBook);
-
-  const handlePress = () => {
-    setCurrentBook(uri);
-    router.push("/reader");
-  };
-
-  return (
-    <TouchableOpacity
-      style={styles.bookCard}
-      onPress={handlePress}
-      activeOpacity={0.7}
-    >
-      <Text style={styles.bookTitle}>{title}</Text>
-      <Text style={styles.bookPath} numberOfLines={1} ellipsizeMode="middle">
-        {uri}
-      </Text>
-    </TouchableOpacity>
-  );
-}
-
-const styles = StyleSheet.create({
-  bookCard: {
-    padding: 15,
-    backgroundColor: "#f9f9f9",
-    borderBottomWidth: 1,
-    borderColor: "#eee",
-    marginBottom: 10,
-    borderRadius: 8,
-  },
-  bookTitle: {
-    fontSize: 16,
-    fontWeight: "500",
-  },
-  bookPath: {
-    fontSize: 12,
-    color: "gray",
-    marginTop: 4,
-  },
 });
 </file>
 
@@ -904,6 +938,255 @@ export const Spacing = {
 
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
 export const MaxContentWidth = 800;
+</file>
+
+<file path="src/store/bookStore.ts">
+import { create } from "zustand";
+import { getLibraryFiles } from "../utils/fileSystem";
+
+export interface Book {
+  id: string;
+  uri: string;
+  title: string;
+  author: string | null;
+  coverUri: string | null;
+}
+
+interface BookStore {
+  books: Book[];
+  isLoading: boolean;
+  currentBookUri: string | null;
+  loadBooks: () => Promise<void>;
+  setCurrentBook: (uri: string | null) => void;
+}
+
+export const useBookStore = create<BookStore>((set) => ({
+  books: [],
+  isLoading: false,
+  currentBookUri: null,
+
+  loadBooks: async () => {
+    set({ isLoading: true });
+    try {
+      const files = await getLibraryFiles();
+      set({ books: files, isLoading: false });
+    } catch (error) {
+      console.error("Failed to load books into store:", error);
+      set({ books: [], isLoading: false });
+    }
+  },
+
+  setCurrentBook: (uri) => set({ currentBookUri: uri }),
+}));
+</file>
+
+<file path="src/utils/fileSystem.ts">
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as FileSystem from "expo-file-system/legacy";
+import { Platform } from "react-native";
+import { extractEpubMetadata } from "./epubMetadata";
+
+const ANDROID_FOLDER_KEY = "android_library_folder";
+
+export async function getLibraryFiles() {
+  try {
+    let targetDirectory = "";
+
+    if (Platform.OS === "ios") {
+      targetDirectory = FileSystem.documentDirectory ?? "";
+      if (!targetDirectory) return [];
+    } else if (Platform.OS === "android") {
+      const savedUri = await AsyncStorage.getItem(ANDROID_FOLDER_KEY);
+
+      if (savedUri) {
+        targetDirectory = savedUri;
+      } else {
+        const permissions =
+          await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+
+        if (!permissions.granted) return [];
+
+        targetDirectory = permissions.directoryUri;
+        await AsyncStorage.setItem(ANDROID_FOLDER_KEY, targetDirectory);
+      }
+    }
+
+    const allFiles =
+      Platform.OS === "android"
+        ? await FileSystem.StorageAccessFramework.readDirectoryAsync(
+            targetDirectory,
+          )
+        : await FileSystem.readDirectoryAsync(targetDirectory);
+
+    const epubUris = allFiles
+      .filter((f) => f.toLowerCase().endsWith(".epub"))
+      .map((fileUri) =>
+        Platform.OS === "android" ? fileUri : targetDirectory + fileUri,
+      );
+
+    const books = await Promise.all(
+      epubUris.map(async (uri) => {
+        const fallbackTitle = decodeURIComponent(
+          uri
+            .split("/")
+            .pop()
+            ?.replace(/\.epub$/i, "") ?? "Unknown",
+        );
+        const metadata = await extractEpubMetadata(uri, fallbackTitle);
+        return { id: uri, uri, ...metadata };
+      }),
+    );
+
+    return books;
+  } catch (error) {
+    console.error("Failed to read library directory:", error);
+    return [];
+  }
+}
+</file>
+
+<file path="src/app/_layout.tsx">
+import { Stack } from "expo-router";
+
+export default function RootLayout() {
+  return (
+    <Stack>
+      {/* Library */}
+      <Stack.Screen
+        name="index"
+        options={{ headerShown: false, animation: "none" }}
+      />
+
+      {/* Reader */}
+      <Stack.Screen
+        name="reader"
+        options={{ title: "Reader", animation: "none" }}
+      />
+
+      {/* Settings */}
+      <Stack.Screen
+        name="settings"
+        options={{ title: "Settings", animation: "none" }}
+      />
+
+      {/* Menu */}
+      <Stack.Screen
+        name="menu"
+        options={{
+          presentation: "modal",
+          title: "Menu",
+          animation: "slide_from_bottom",
+        }}
+      />
+    </Stack>
+  );
+}
+</file>
+
+<file path="src/components/BookCard.tsx">
+import { Image } from "expo-image";
+import { useRouter } from "expo-router";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Colors, Spacing } from "../constants/theme";
+import { Book, useBookStore } from "../store/bookStore";
+
+type BookCardProps = Pick<Book, "title" | "author" | "coverUri" | "uri">;
+
+export default function BookCard({
+  title,
+  author,
+  coverUri,
+  uri,
+}: BookCardProps) {
+  const router = useRouter();
+  const setCurrentBook = useBookStore((state) => state.setCurrentBook);
+
+  const handlePress = () => {
+    setCurrentBook(uri);
+    router.push("/reader");
+  };
+
+  return (
+    <TouchableOpacity
+      style={styles.card}
+      onPress={handlePress}
+      activeOpacity={0.7}
+    >
+      {coverUri ? (
+        <Image
+          source={{ uri: coverUri }}
+          style={styles.cover}
+          contentFit="cover"
+        />
+      ) : (
+        <View style={styles.coverPlaceholder}>
+          <Text style={styles.placeholderIcon}>📖</Text>
+        </View>
+      )}
+
+      <View style={styles.info}>
+        <Text style={styles.title} numberOfLines={3}>
+          {title}
+        </Text>
+        {author && (
+          <Text style={styles.author} numberOfLines={1}>
+            {author}
+          </Text>
+        )}
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.light.surface,
+    borderRadius: 8,
+    marginBottom: Spacing.two,
+    padding: Spacing.three,
+    gap: Spacing.three,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  cover: {
+    width: 60,
+    height: 88,
+    borderRadius: 4,
+    backgroundColor: Colors.light.border,
+  },
+  coverPlaceholder: {
+    width: 60,
+    height: 88,
+    borderRadius: 4,
+    backgroundColor: Colors.light.background,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  placeholderIcon: {
+    fontSize: 24,
+  },
+  info: {
+    flex: 1,
+    gap: Spacing.one,
+  },
+  title: {
+    fontSize: 15,
+    fontWeight: "500",
+    color: Colors.light.text,
+    lineHeight: 20,
+  },
+  author: {
+    fontSize: 13,
+    color: Colors.light.textSecondary,
+  },
+});
 </file>
 
 <file path="app.json">
@@ -970,103 +1253,6 @@ export const MaxContentWidth = 800;
 }
 </file>
 
-<file path="src/app/_layout.tsx">
-import { Stack } from "expo-router";
-
-export default function RootLayout() {
-  return (
-    <Stack>
-      {/* Library */}
-      <Stack.Screen
-        name="index"
-        options={{ headerShown: false, animation: "none" }}
-      />
-
-      {/* Reader */}
-      <Stack.Screen
-        name="reader"
-        options={{ title: "Reader", animation: "none" }}
-      />
-
-      {/* Settings */}
-      <Stack.Screen
-        name="settings"
-        options={{ title: "Settings", animation: "none" }}
-      />
-
-      {/* Menu */}
-      <Stack.Screen
-        name="menu"
-        options={{
-          presentation: "modal",
-          title: "Menu",
-          animation: "slide_from_bottom",
-        }}
-      />
-    </Stack>
-  );
-}
-</file>
-
-<file path="package.json">
-{
-  "name": "epubreader",
-  "main": "expo-router/entry",
-  "version": "1.0.0",
-  "dependencies": {
-    "@expo/ui": "~56.0.15",
-    "@expo/vector-icons": "^15.0.2",
-    "@react-native-async-storage/async-storage": "2.2.0",
-    "expo": "~56.0.8",
-    "expo-asset": "~56.0.17",
-    "expo-constants": "~56.0.15",
-    "expo-device": "~56.0.4",
-    "expo-document-picker": "~56.0.4",
-    "expo-file-system": "~56.0.7",
-    "expo-font": "~56.0.5",
-    "expo-glass-effect": "~56.0.4",
-    "expo-image": "~56.0.9",
-    "expo-linking": "~56.0.13",
-    "expo-router": "~56.2.8",
-    "expo-splash-screen": "~56.0.10",
-    "expo-status-bar": "~56.0.4",
-    "expo-symbols": "~56.0.5",
-    "expo-system-ui": "~56.0.5",
-    "expo-web-browser": "~56.0.5",
-    "react": "19.2.3",
-    "react-dom": "19.2.3",
-    "react-native": "0.85.3",
-    "react-native-gesture-handler": "~2.31.1",
-    "react-native-reanimated": "4.3.1",
-    "react-native-safe-area-context": "~5.7.0",
-    "react-native-screens": "4.25.2",
-    "react-native-web": "~0.21.0",
-    "react-native-webview": "13.16.1",
-    "react-native-worklets": "0.8.3",
-    "zustand": "^5.0.14"
-  },
-  "devDependencies": {
-    "@types/react": "~19.2.2",
-    "eslint": "^9.0.0",
-    "eslint-config-expo": "~56.0.4",
-    "eslint-config-prettier": "^10.1.8",
-    "eslint-plugin-prettier": "^5.5.5",
-    "prettier": "^3.8.3",
-    "typescript": "~6.0.3"
-  },
-  "scripts": {
-    "start": "expo start",
-    "reset-project": "node ./scripts/reset-project.js",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
-    "web": "expo start --web",
-    "lint": "expo lint",
-    "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json}\""
-  },
-  "private": true
-}
-</file>
-
 <file path="src/app/index.tsx">
 import { useEffect } from "react";
 import {
@@ -1124,6 +1310,67 @@ const styles = StyleSheet.create({
   header: { fontSize: 24, fontWeight: "bold", marginBottom: 20 },
   emptyText: { textAlign: "center", marginTop: 50, color: "gray" },
 });
+</file>
+
+<file path="package.json">
+{
+  "name": "epubreader",
+  "main": "expo-router/entry",
+  "version": "1.0.0",
+  "dependencies": {
+    "@expo/ui": "~56.0.15",
+    "@expo/vector-icons": "^15.0.2",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "expo": "~56.0.8",
+    "expo-asset": "~56.0.17",
+    "expo-constants": "~56.0.15",
+    "expo-device": "~56.0.4",
+    "expo-document-picker": "~56.0.4",
+    "expo-file-system": "~56.0.7",
+    "expo-font": "~56.0.5",
+    "expo-glass-effect": "~56.0.4",
+    "expo-image": "~56.0.11",
+    "expo-linking": "~56.0.13",
+    "expo-router": "~56.2.8",
+    "expo-splash-screen": "~56.0.10",
+    "expo-status-bar": "~56.0.4",
+    "expo-symbols": "~56.0.5",
+    "expo-system-ui": "~56.0.5",
+    "expo-web-browser": "~56.0.5",
+    "jszip": "^3.10.1",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.85.3",
+    "react-native-gesture-handler": "~2.31.1",
+    "react-native-reanimated": "4.3.1",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-screens": "4.25.2",
+    "react-native-web": "~0.21.0",
+    "react-native-webview": "13.16.1",
+    "react-native-worklets": "0.8.3",
+    "zustand": "^5.0.14"
+  },
+  "devDependencies": {
+    "@types/jszip": "^3.4.0",
+    "@types/react": "~19.2.2",
+    "eslint": "^9.0.0",
+    "eslint-config-expo": "~56.0.4",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.5",
+    "prettier": "^3.8.3",
+    "typescript": "~6.0.3"
+  },
+  "scripts": {
+    "start": "expo start",
+    "reset-project": "node ./scripts/reset-project.js",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "lint": "expo lint",
+    "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json}\""
+  },
+  "private": true
+}
 </file>
 
 </files>

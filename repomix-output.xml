@@ -47,6 +47,9 @@ app.json
 assets/expo.icon/Assets/expo-symbol 2.svg
 assets/expo.icon/Assets/grid.png
 assets/expo.icon/icon.json
+assets/gifs/reader.gif
+assets/gifs/settings.gif
+assets/gifs/start.gif
 assets/images/android-icon-background.png
 assets/images/android-icon-foreground.png
 assets/images/android-icon-monochrome.png
@@ -80,8 +83,11 @@ src/components/ReaderHeader.tsx
 src/components/SwipeDelete.tsx
 src/constants/theme.ts
 src/global.css
+src/store/Bookstore.test.tsx
 src/store/bookStore.ts
+src/store/Settingsstore.test.tsx
 src/store/settingsStore.ts
+src/utils/Epubmetadata.test.tsx
 src/utils/epubMetadata.ts
 src/utils/fileSystem.ts
 tsconfig.json
@@ -89,6 +95,251 @@ tsconfig.json
 
 <files>
 This section contains the contents of the repository's files.
+
+<file path="src/store/Bookstore.test.tsx">
+import { beforeEach, describe, expect, it, jest } from "@jest/globals";
+
+import { getLibraryFiles } from "../utils/fileSystem";
+import { useBookStore } from "./bookStore";
+
+jest.mock("../utils/fileSystem", () => ({
+  getLibraryFiles: jest.fn(),
+}));
+
+const mockGetLibraryFiles = jest.mocked(getLibraryFiles);
+const initialState = useBookStore.getState();
+
+describe("bookStore", () => {
+  beforeEach(() => {
+    useBookStore.setState(initialState, true);
+    mockGetLibraryFiles.mockReset();
+  });
+
+  it("loadBooks sets isLoading while fetching and populates books on success", async () => {
+    const books = [
+      { id: "a.epub", uri: "a.epub", title: "A", author: null, coverUri: null },
+    ];
+    mockGetLibraryFiles.mockResolvedValue(books);
+
+    const loadPromise = useBookStore.getState().loadBooks();
+    expect(useBookStore.getState().isLoading).toBe(true);
+
+    await loadPromise;
+
+    expect(useBookStore.getState().books).toEqual(books);
+    expect(useBookStore.getState().isLoading).toBe(false);
+  });
+
+  it("loadBooks resets to an empty list and isLoading false when getLibraryFiles throws", async () => {
+    const consoleSpy = jest
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    mockGetLibraryFiles.mockRejectedValue(new Error("disk error"));
+
+    await useBookStore.getState().loadBooks();
+
+    expect(useBookStore.getState().books).toEqual([]);
+    expect(useBookStore.getState().isLoading).toBe(false);
+
+    consoleSpy.mockRestore();
+  });
+
+  it("setCurrentBook updates currentBookUri", () => {
+    useBookStore.getState().setCurrentBook("some/uri.epub");
+    expect(useBookStore.getState().currentBookUri).toBe("some/uri.epub");
+
+    useBookStore.getState().setCurrentBook(null);
+    expect(useBookStore.getState().currentBookUri).toBeNull();
+  });
+});
+</file>
+
+<file path="src/store/Settingsstore.test.tsx">
+import { beforeEach, describe, expect, it } from "@jest/globals";
+import { useSettingsStore } from "./settingsStore";
+
+const initialState = useSettingsStore.getState();
+
+describe("settingsStore", () => {
+  beforeEach(() => {
+    useSettingsStore.setState(initialState, true);
+  });
+
+  it("starts with the default theme and font", () => {
+    const state = useSettingsStore.getState();
+    expect(state.isDarkMode).toBe(false);
+    expect(state.currentFont).toBe("System");
+  });
+
+  it("toggleTheme flips isDarkMode on each call", () => {
+    useSettingsStore.getState().toggleTheme();
+    expect(useSettingsStore.getState().isDarkMode).toBe(true);
+
+    useSettingsStore.getState().toggleTheme();
+    expect(useSettingsStore.getState().isDarkMode).toBe(false);
+  });
+
+  it("setFont updates currentFont without changing isDarkMode", () => {
+    const darkModeBefore = useSettingsStore.getState().isDarkMode;
+    useSettingsStore.getState().setFont("Serif");
+
+    expect(useSettingsStore.getState().currentFont).toBe("Serif");
+    expect(useSettingsStore.getState().isDarkMode).toBe(darkModeBefore);
+  });
+});
+</file>
+
+<file path="src/utils/Epubmetadata.test.tsx">
+import { beforeEach, describe, expect, it, jest } from "@jest/globals";
+import JSZip from "jszip";
+
+import { clearMetadataCache, extractEpubMetadata } from "./epubMetadata";
+
+const storage = new Map<string, string>();
+
+jest.mock("@react-native-async-storage/async-storage", () => ({
+  getItem: jest.fn((key: string) => Promise.resolve(storage.get(key) ?? null)),
+  setItem: jest.fn((key: string, value: string) => {
+    storage.set(key, value);
+    return Promise.resolve();
+  }),
+  getAllKeys: jest.fn(() => Promise.resolve(Array.from(storage.keys()))),
+  multiRemove: jest.fn((keys: string[]) => {
+    keys.forEach((k) => storage.delete(k));
+    return Promise.resolve();
+  }),
+}));
+
+const files = new Map<string, string>();
+
+jest.mock("expo-file-system/legacy", () => ({
+  cacheDirectory: "file:///cache/",
+  EncodingType: { Base64: "base64" },
+  getInfoAsync: jest.fn(() => Promise.resolve({ exists: true })),
+  makeDirectoryAsync: jest.fn(() => Promise.resolve()),
+  readAsStringAsync: jest.fn((uri: string) =>
+    Promise.resolve(files.get(uri) ?? ""),
+  ),
+  writeAsStringAsync: jest.fn((uri: string, data: string) => {
+    files.set(uri, data);
+    return Promise.resolve();
+  }),
+  deleteAsync: jest.fn(() => Promise.resolve()),
+}));
+
+async function buildFakeEpub({
+  title = "Test Book",
+  author = "Jane Doe",
+  includeCover = true,
+}: { title?: string; author?: string; includeCover?: boolean } = {}) {
+  const zip = new JSZip();
+  zip.file(
+    "META-INF/container.xml",
+    `<?xml version="1.0"?><container><rootfiles><rootfile full-path="OEBPS/content.opf"/></rootfiles></container>`,
+  );
+
+  const coverItem = includeCover
+    ? `<item id="cover-img" href="cover.jpg" properties="cover-image" media-type="image/jpeg"/>`
+    : "";
+
+  zip.file(
+    "OEBPS/content.opf",
+    `<?xml version="1.0"?>
+     <package>
+       <metadata>
+         <dc:title>${title}</dc:title>
+         <dc:creator>${author}</dc:creator>
+       </metadata>
+       <manifest>${coverItem}</manifest>
+     </package>`,
+  );
+
+  if (includeCover) {
+    zip.file("OEBPS/cover.jpg", "fake-jpeg-bytes");
+  }
+
+  return zip.generateAsync({ type: "base64" });
+}
+
+describe("extractEpubMetadata", () => {
+  beforeEach(() => {
+    storage.clear();
+    files.clear();
+    jest.clearAllMocks();
+  });
+
+  it("extracts title, author, and saves the cover image for a valid EPUB", async () => {
+    const base64 = await buildFakeEpub();
+    files.set("file:///library/book.epub", base64);
+
+    const meta = await extractEpubMetadata(
+      "file:///library/book.epub",
+      "fallback",
+    );
+
+    expect(meta.title).toBe("Test Book");
+    expect(meta.author).toBe("Jane Doe");
+    expect(meta.coverUri).toMatch(/epub-covers\/.*\.jpg$/);
+  });
+
+  it("falls back to the provided title and null fields when the file isn't a valid EPUB", async () => {
+    files.set("file:///library/broken.epub", "not-a-real-zip");
+
+    const meta = await extractEpubMetadata(
+      "file:///library/broken.epub",
+      "My Fallback Title",
+    );
+
+    expect(meta).toEqual({
+      title: "My Fallback Title",
+      author: null,
+      coverUri: null,
+    });
+  });
+
+  it("returns metadata without a cover when the OPF has no cover reference", async () => {
+    const base64 = await buildFakeEpub({ includeCover: false });
+    files.set("file:///library/nocover.epub", base64);
+
+    const meta = await extractEpubMetadata(
+      "file:///library/nocover.epub",
+      "fallback",
+    );
+
+    expect(meta.title).toBe("Test Book");
+    expect(meta.coverUri).toBeNull();
+  });
+
+  it("uses the cached result on a second call instead of re-parsing the zip", async () => {
+    const base64 = await buildFakeEpub();
+    files.set("file:///library/cached.epub", base64);
+
+    await extractEpubMetadata("file:///library/cached.epub", "fallback");
+    files.delete("file:///library/cached.epub");
+
+    const second = await extractEpubMetadata(
+      "file:///library/cached.epub",
+      "fallback",
+    );
+    expect(second.title).toBe("Test Book");
+  });
+});
+
+describe("clearMetadataCache", () => {
+  it("removes cached metadata entries but leaves unrelated keys alone", async () => {
+    storage.set(
+      "epub_meta:file:///a.epub",
+      JSON.stringify({ _v: 4, title: "A" }),
+    );
+    storage.set("unrelated_key", "keep-me");
+
+    await clearMetadataCache();
+
+    expect(storage.has("epub_meta:file:///a.epub")).toBe(false);
+    expect(storage.has("unrelated_key")).toBe(true);
+  });
+});
+</file>
 
 <file path=".claude/settings.json">
 {
@@ -184,65 +435,6 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-</file>
-
-<file path="README.md">
-# Welcome to your Expo app 👋
-
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
-
-## Get started
-
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-### Other setup steps
-
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
 </file>
 
 <file path="src/components/ErrorBoundary.test.tsx">
@@ -539,102 +731,6 @@ const styles = StyleSheet.create({
 });
 </file>
 
-<file path="src/components/SwipeDelete.tsx">
-import { Ionicons } from "@expo/vector-icons";
-import { Dimensions, StyleSheet, View } from "react-native";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withTiming,
-} from "react-native-reanimated";
-import { scheduleOnRN } from "react-native-worklets";
-import { BorderRadius, Spacing } from "../constants/theme";
-
-interface SwipeDeleteProps {
-  children: React.ReactNode;
-  onDelete: () => void;
-  dangerColor: string;
-  iconColor: string;
-}
-
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const SWIPE_THRESHOLD = -SCREEN_WIDTH * 0.3;
-
-export default function SwipeDelete({
-  children,
-  onDelete,
-  dangerColor,
-  iconColor,
-}: SwipeDeleteProps) {
-  const translateX = useSharedValue<number>(0);
-  const itemHeight = useSharedValue<number>(120);
-  const marginVertical = useSharedValue<number>(Spacing.sm);
-  const opacity = useSharedValue<number>(1);
-
-  const panGesture = Gesture.Pan()
-    .onChange((event) => {
-      translateX.value = Math.min(0, event.translationX);
-    })
-    .onEnd(() => {
-      if (translateX.value < SWIPE_THRESHOLD) {
-        translateX.value = withTiming(-SCREEN_WIDTH, { duration: 200 }, () => {
-          itemHeight.value = withTiming(0);
-          marginVertical.value = withTiming(0);
-          opacity.value = withTiming(0, undefined, (isFinished) => {
-            if (isFinished) {
-              scheduleOnRN(onDelete);
-            }
-          });
-        });
-      } else {
-        translateX.value = withSpring(0);
-      }
-    });
-
-  const rCardStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: translateX.value }],
-  }));
-
-  const rContainerStyle = useAnimatedStyle(() => ({
-    height: itemHeight.value === 120 ? "auto" : itemHeight.value,
-    marginBottom: marginVertical.value,
-    opacity: opacity.value,
-  }));
-
-  return (
-    <Animated.View style={[styles.container, rContainerStyle]}>
-      <View style={[styles.deleteBackground, { backgroundColor: dangerColor }]}>
-        <Ionicons name="trash-outline" size={28} color={iconColor} />
-      </View>
-
-      <GestureDetector gesture={panGesture}>
-        <Animated.View style={rCardStyle}>{children}</Animated.View>
-      </GestureDetector>
-    </Animated.View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    width: "100%",
-  },
-  deleteBackground: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    left: 0,
-    right: 0,
-    justifyContent: "center",
-    alignItems: "flex-end",
-    paddingRight: Spacing.xl,
-    borderRadius: BorderRadius.md,
-    marginBottom: Spacing.sm,
-  },
-});
-</file>
-
 <file path="src/global.css">
 :root {
   --font-display:
@@ -923,6 +1019,232 @@ const config = getDefaultConfig(__dirname);
 config.resolver.assetExts.push("html");
 
 module.exports = config;
+</file>
+
+<file path="README.md">
+<a id="readme-top"></a>
+
+<br />
+<div align="center">
+  <img src="assets/images/icon.png" alt="EpubReader Logo" width="80" height="80">
+
+  <h3 align="center">EpubReader</h3>
+
+  <p align="center">
+    An offline-first mobile EPUB reader featuring dynamic theming, custom typography, and native file system integration.
+  </p>
+
+  <p align="center">
+    <a href="https://github.com/your_username/EpubReader/releases/latest"><img src="https://img.shields.io/github/v/release/your_username/EpubReader?label=download%20apk&color=208AEF" alt="Latest Release"></a>
+  </p>
+</div>
+
+---
+
+## Table of Contents
+
+- [About The Project](#about-the-project)
+  - [Key Features](#key-features)
+  - [App Showcase & User Flow](#app-showcase--user-flow)
+  - [Built With](#built-with)
+- [Quick Install (Android)](#quick-install-android)
+- [Getting Started](#getting-started)
+  - [Prerequisites](#prerequisites)
+  - [Installation](#installation)
+- [Building for Production](#building-for-production)
+
+## About The Project
+
+EpubReader is a local mobile application that parses and displays `.epub` files directly from the device's storage It extracts book metadata, caches cover images, and renders e-book content through a responsive in-app web view, while letting readers customize their experience with dynamic dark mode and font selection.
+
+### Key Features
+
+- **Local library scanning** — automatically detects `.epub` files from the Files app on iOS, or a user-selected folder on Android via the Storage Access Framework
+- **Dynamic theming** — full dark mode support across the entire app
+- **Custom typography** — switch reading fonts on the fly
+- **Metadata & cover caching** — titles, authors, and covers are parsed once and cached locally for fast subsequent loads
+- **Fully offline** — browsing, opening, and reading books never requires a network connection
+- **Native haptics** — tactile feedback throughout the UI
+
+### App Showcase & User Flow
+
+| Starting App & Folder Access | Reader & Delete | Settings |
+| :---: | :---: | :---: |
+| ![Start](assets/gifs/start.gif) | ![Reader](assets/gifs/reader.gif) | ![Settings](assets/gifs/settings.gif) |
+
+### Built With
+
+* [React Native](https://reactnative.dev/)
+* [Expo](https://expo.dev/)
+* [Expo Router](https://docs.expo.dev/router/introduction/)
+* [Zustand](https://zustand-demo.pmnd.rs/)
+* [TypeScript](https://www.typescriptlang.org/)
+* [Epub.js](https://github.com/futurepress/epub.js/)
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## Quick Install (Android)
+
+If you don't want to build from source, grab the latest signed APK straight from the [**Releases**](https://github.com/your_username/EpubReader/releases) page, download it to your Android device, and install it directly — you may need to enable "Install unknown apps" for your browser or file manager the first time.
+
+This is the fastest way to try EpubReader: no Node.js, no Expo account, no build step.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## Getting Started
+
+To get a local copy up and running, follow these simple steps.
+
+### Prerequisites
+
+Ensure you have Node.js installed on your machine, then make sure npm is up to date:
+
+```sh
+npm install npm@latest -g
+```
+
+### Installation
+
+1. Clone the repo
+
+   ```sh
+   git clone https://github.com/your_username/EpubReader.git
+   cd EpubReader
+   ```
+
+2. Install NPM packages
+
+   ```sh
+   npm install
+   ```
+
+3. Start the dev server
+
+   ```sh
+   npm start
+   ```
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## Building for Production
+
+This project uses [EAS Build](https://docs.expo.dev/build/introduction/) to compile standalone binaries. The `preview` profile in `eas.json` is configured to output a directly installable Android **APK** (rather than a Play Store `.aab` bundle), which is what you need for a fully offline installation outside the Play Store.
+
+### One-time setup
+
+```sh
+npm install -g eas-cli
+eas login
+```
+
+### Build the APK
+
+```sh
+eas build --platform android --profile preview
+```
+
+This queues a cloud build. Once it finishes, EAS prints a download link (and QR code) for the `.apk` file. Download it to an Android device and install it directly — you may need to enable "Install unknown apps" for your browser or file manager the first time.
+
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+</file>
+
+<file path="src/components/SwipeDelete.tsx">
+import { Ionicons } from "@expo/vector-icons";
+import { Dimensions, StyleSheet, View } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
+import { scheduleOnRN } from "react-native-worklets";
+import { BorderRadius, Spacing } from "../constants/theme";
+
+interface SwipeDeleteProps {
+  children: React.ReactNode;
+  onDelete: () => void;
+  dangerColor: string;
+  iconColor: string;
+}
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const SWIPE_THRESHOLD = -SCREEN_WIDTH * 0.3;
+
+export default function SwipeDelete({
+  children,
+  onDelete,
+  dangerColor,
+  iconColor,
+}: SwipeDeleteProps) {
+  const translateX = useSharedValue<number>(0);
+  const itemHeight = useSharedValue<number>(120);
+  const marginVertical = useSharedValue<number>(Spacing.sm);
+  const opacity = useSharedValue<number>(1);
+
+  const panGesture = Gesture.Pan()
+    .activeOffsetX([-10, 10])
+    .failOffsetY([-5, 5])
+    .onChange((event) => {
+      translateX.value = Math.min(0, event.translationX);
+    })
+    .onEnd(() => {
+      if (translateX.value < SWIPE_THRESHOLD) {
+        translateX.value = withTiming(-SCREEN_WIDTH, { duration: 200 }, () => {
+          itemHeight.value = withTiming(0);
+          marginVertical.value = withTiming(0);
+          opacity.value = withTiming(0, undefined, (isFinished) => {
+            if (isFinished) {
+              scheduleOnRN(onDelete);
+            }
+          });
+        });
+      } else {
+        translateX.value = withSpring(0);
+      }
+    });
+
+  const rCardStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+  }));
+
+  const rContainerStyle = useAnimatedStyle(() => ({
+    height: itemHeight.value === 120 ? "auto" : itemHeight.value,
+    marginBottom: marginVertical.value,
+    opacity: opacity.value,
+  }));
+
+  return (
+    <Animated.View style={[styles.container, rContainerStyle]}>
+      <View style={[styles.deleteBackground, { backgroundColor: dangerColor }]}>
+        <Ionicons name="trash-outline" size={28} color={iconColor} />
+      </View>
+
+      <GestureDetector gesture={panGesture}>
+        <Animated.View style={rCardStyle}>{children}</Animated.View>
+      </GestureDetector>
+    </Animated.View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    width: "100%",
+  },
+  deleteBackground: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    justifyContent: "center",
+    alignItems: "flex-end",
+    paddingRight: Spacing.xl,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.sm,
+  },
+});
 </file>
 
 <file path=".gitignore">
@@ -1247,17 +1569,6 @@ export const useBookStore = create<BookStore>((set) => ({
 }));
 </file>
 
-<file path="tsconfig.json">
-{
-  "extends": "expo/tsconfig.base",
-  "compilerOptions": {
-    "strict": true,
-    "types": ["jest"],
-    "isolatedModules": true
-  }
-}
-</file>
-
 <file path="app.json">
 {
   "expo": {
@@ -1426,6 +1737,25 @@ export const useBookStore = create<BookStore>((set) => ({
 </html>
 </file>
 
+<file path="tsconfig.json">
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "types": [
+      "jest"
+    ],
+    "isolatedModules": true
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts"
+  ]
+}
+</file>
+
 <file path="src/app/settings.tsx">
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
@@ -1573,204 +1903,6 @@ const styles = StyleSheet.create({
 });
 </file>
 
-<file path="src/components/BookCard.tsx">
-import * as Haptics from "expo-haptics";
-import { Image } from "expo-image";
-import { useRouter } from "expo-router";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import {
-  BorderRadius,
-  Colors,
-  Shadows,
-  Spacing,
-  Typography,
-} from "../constants/theme";
-import { Book, useBookStore } from "../store/bookStore";
-import { useSettingsStore } from "../store/settingsStore";
-import SwipeDelete from "./SwipeDelete";
-
-type BookCardProps = Pick<Book, "title" | "author" | "coverUri" | "uri">;
-
-export default function BookCard({
-  title,
-  author,
-  coverUri,
-  uri,
-}: BookCardProps) {
-  const router = useRouter();
-  const { setCurrentBook, deleteBook } = useBookStore();
-  const { isDarkMode } = useSettingsStore();
-
-  const theme = isDarkMode ? Colors.dark : Colors.light;
-  const shadow = isDarkMode ? Shadows.dark.sm : Shadows.light.sm;
-
-  const handleDelete = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    deleteBook(uri);
-  };
-
-  const handlePress = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setCurrentBook(uri);
-    router.push("/reader");
-  };
-
-  return (
-    <SwipeDelete
-      onDelete={handleDelete}
-      dangerColor={theme.danger}
-      iconColor={theme.textInverse}
-    >
-      <TouchableOpacity
-        style={[styles.card, { backgroundColor: theme.surface }, shadow]}
-        onPress={handlePress}
-        activeOpacity={1}
-      >
-        {coverUri ? (
-          <Image
-            source={{ uri: coverUri }}
-            style={[styles.cover, { backgroundColor: theme.border }]}
-            contentFit="cover"
-          />
-        ) : (
-          <View
-            style={[
-              styles.coverPlaceholder,
-              { backgroundColor: theme.background, borderColor: theme.border },
-            ]}
-          >
-            <Text style={styles.placeholderIcon}>📖</Text>
-          </View>
-        )}
-
-        <View style={styles.info}>
-          <Text style={[styles.title, { color: theme.text }]} numberOfLines={3}>
-            {title}
-          </Text>
-          {author && (
-            <Text
-              style={[styles.author, { color: theme.textSecondary }]}
-              numberOfLines={1}
-            >
-              {author}
-            </Text>
-          )}
-        </View>
-      </TouchableOpacity>
-    </SwipeDelete>
-  );
-}
-
-const styles = StyleSheet.create({
-  card: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderRadius: BorderRadius.md,
-    padding: Spacing.md,
-    gap: Spacing.md,
-  },
-  cover: { width: 60, height: 88, borderRadius: BorderRadius.sm },
-  coverPlaceholder: {
-    width: 60,
-    height: 88,
-    borderRadius: BorderRadius.sm,
-    borderWidth: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  placeholderIcon: { fontSize: Typography.sizes.xxl },
-  info: { flex: 1, gap: Spacing.xs },
-  title: {
-    fontSize: Typography.sizes.md,
-    fontWeight: Typography.weights.medium,
-    lineHeight: Typography.lineHeights.md,
-  },
-  author: { fontSize: Typography.sizes.sm },
-});
-</file>
-
-<file path="src/app/index.tsx">
-import { useEffect } from "react";
-import {
-  ActivityIndicator,
-  Button,
-  FlatList,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
-import BookCard from "../components/BookCard";
-import { Colors, Spacing, Typography } from "../constants/theme";
-import { useBookStore } from "../store/bookStore";
-import { useSettingsStore } from "../store/settingsStore";
-
-export default function LibraryScreen() {
-  const { books, isLoading, loadBooks } = useBookStore();
-  const { isDarkMode } = useSettingsStore();
-  const theme = isDarkMode ? Colors.dark : Colors.light;
-
-  useEffect(() => {
-    loadBooks();
-  }, [loadBooks]);
-
-  if (isLoading) {
-    return (
-      <View style={[styles.center, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={theme.primary} />
-      </View>
-    );
-  }
-
-  return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <Text style={[styles.header, { color: theme.text }]}>My Library</Text>
-
-      <Button
-        title="Refresh Library"
-        onPress={loadBooks}
-        color={theme.primary}
-      />
-
-      {books.length === 0 ? (
-        <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
-          No books found. Add .epub files to the app folder.
-        </Text>
-      ) : (
-        <FlatList
-          data={books}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <BookCard
-              title={item.title}
-              author={item.author}
-              coverUri={item.coverUri}
-              uri={item.uri}
-            />
-          )}
-          contentContainerStyle={styles.listContent}
-        />
-      )}
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: { flex: 1, padding: Spacing.lg },
-  center: { flex: 1, justifyContent: "center", alignItems: "center" },
-  header: {
-    fontSize: Typography.sizes.xxl,
-    fontWeight: Typography.weights.bold,
-    marginBottom: Spacing.lg,
-  },
-  emptyText: {
-    textAlign: "center",
-    marginTop: Spacing.xxxl,
-    fontSize: Typography.sizes.md,
-  },
-  listContent: { paddingBottom: Spacing.xxl, paddingTop: Spacing.md },
-});
-</file>
-
 <file path="src/app/reader.tsx">
 import { Asset } from "expo-asset";
 import * as FileSystem from "expo-file-system/legacy";
@@ -1905,6 +2037,125 @@ const styles = StyleSheet.create({
 });
 </file>
 
+<file path="src/components/BookCard.tsx">
+import * as Haptics from "expo-haptics";
+import { Image } from "expo-image";
+import { useRouter } from "expo-router";
+import { memo } from "react";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  BorderRadius,
+  Colors,
+  Shadows,
+  Spacing,
+  Typography,
+} from "../constants/theme";
+import { Book, useBookStore } from "../store/bookStore";
+import { useSettingsStore } from "../store/settingsStore";
+import SwipeDelete from "./SwipeDelete";
+
+type BookCardProps = Pick<Book, "title" | "author" | "coverUri" | "uri">;
+
+const BookCard = memo(function BookCard({
+  title,
+  author,
+  coverUri,
+  uri,
+}: BookCardProps) {
+  const router = useRouter();
+  const { setCurrentBook, deleteBook } = useBookStore();
+  const { isDarkMode } = useSettingsStore();
+
+  const theme = isDarkMode ? Colors.dark : Colors.light;
+  const shadow = isDarkMode ? Shadows.dark.sm : Shadows.light.sm;
+
+  const handleDelete = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    deleteBook(uri);
+  };
+
+  const handlePress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setCurrentBook(uri);
+    router.push("/reader");
+  };
+
+  return (
+    <SwipeDelete
+      onDelete={handleDelete}
+      dangerColor={theme.danger}
+      iconColor={theme.textInverse}
+    >
+      <TouchableOpacity
+        style={[styles.card, { backgroundColor: theme.surface }, shadow]}
+        onPress={handlePress}
+        activeOpacity={1}
+      >
+        {coverUri ? (
+          <Image
+            source={{ uri: coverUri }}
+            style={[styles.cover, { backgroundColor: theme.border }]}
+            contentFit="cover"
+          />
+        ) : (
+          <View
+            style={[
+              styles.coverPlaceholder,
+              { backgroundColor: theme.background, borderColor: theme.border },
+            ]}
+          >
+            <Text style={styles.placeholderIcon}>📖</Text>
+          </View>
+        )}
+
+        <View style={styles.info}>
+          <Text style={[styles.title, { color: theme.text }]} numberOfLines={3}>
+            {title}
+          </Text>
+          {author && (
+            <Text
+              style={[styles.author, { color: theme.textSecondary }]}
+              numberOfLines={1}
+            >
+              {author}
+            </Text>
+          )}
+        </View>
+      </TouchableOpacity>
+    </SwipeDelete>
+  );
+});
+
+export default BookCard;
+
+const styles = StyleSheet.create({
+  card: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    gap: Spacing.md,
+  },
+  cover: { width: 60, height: 88, borderRadius: BorderRadius.sm },
+  coverPlaceholder: {
+    width: 60,
+    height: 88,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  placeholderIcon: { fontSize: Typography.sizes.xxl },
+  info: { flex: 1, gap: Spacing.xs },
+  title: {
+    fontSize: Typography.sizes.md,
+    fontWeight: Typography.weights.medium,
+    lineHeight: Typography.lineHeights.md,
+  },
+  author: { fontSize: Typography.sizes.sm },
+});
+</file>
+
 <file path="src/app/_layout.tsx">
 import { Stack } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -1949,6 +2200,120 @@ export default function RootLayout() {
     </GestureHandlerRootView>
   );
 }
+</file>
+
+<file path="src/app/index.tsx">
+import { useCallback, useEffect } from "react";
+import {
+  ActivityIndicator,
+  Button,
+  FlatList,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import BookCard from "../components/BookCard";
+import { Colors, Spacing, Typography } from "../constants/theme";
+import { Book, useBookStore } from "../store/bookStore";
+import { useSettingsStore } from "../store/settingsStore";
+
+const ITEM_HEIGHT = 128;
+
+export default function LibraryScreen() {
+  const { books, isLoading, loadBooks } = useBookStore();
+  const { isDarkMode } = useSettingsStore();
+  const insets = useSafeAreaInsets();
+
+  const theme = isDarkMode ? Colors.dark : Colors.light;
+
+  useEffect(() => {
+    loadBooks();
+  }, [loadBooks]);
+
+  const renderItem = useCallback(
+    ({ item }: { item: Book }) => (
+      <BookCard
+        title={item.title}
+        author={item.author}
+        coverUri={item.coverUri}
+        uri={item.uri}
+      />
+    ),
+    [],
+  );
+
+  const getItemLayout = useCallback(
+    (_data: ArrayLike<Book> | null | undefined, index: number) => ({
+      length: ITEM_HEIGHT,
+      offset: ITEM_HEIGHT * index,
+      index,
+    }),
+    [],
+  );
+
+  if (isLoading) {
+    return (
+      <View style={[styles.center, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={theme.primary} />
+      </View>
+    );
+  }
+
+  return (
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: theme.background,
+          paddingTop: Math.max(insets.top, Spacing.lg),
+        },
+      ]}
+    >
+      <Text style={[styles.header, { color: theme.text }]}>My Library</Text>
+
+      <Button
+        title="Refresh Library"
+        onPress={loadBooks}
+        color={theme.primary}
+      />
+
+      {books.length === 0 ? (
+        <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
+          No books found. Add .epub files to the app folder.
+        </Text>
+      ) : (
+        <FlatList
+          data={books}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          getItemLayout={getItemLayout}
+          initialNumToRender={8}
+          maxToRenderPerBatch={8}
+          windowSize={5}
+          removeClippedSubviews={true}
+          contentContainerStyle={styles.listContent}
+        />
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, padding: Spacing.lg },
+  center: { flex: 1, justifyContent: "center", alignItems: "center" },
+  header: {
+    fontSize: Typography.sizes.xxl,
+    fontWeight: Typography.weights.bold,
+    marginBottom: Spacing.lg,
+  },
+  emptyText: {
+    textAlign: "center",
+    marginTop: Spacing.xxxl,
+    fontSize: Typography.sizes.md,
+  },
+  listContent: { paddingBottom: Spacing.xxl, paddingTop: Spacing.md },
+});
 </file>
 
 <file path="package.json">
@@ -2009,8 +2374,8 @@ export default function RootLayout() {
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web",
     "lint": "expo lint",
     "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json}\"",

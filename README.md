@@ -11,7 +11,7 @@
   </p>
 
   <p align="center">
-    <a href="https://github.com/your_username/EpubReader/releases/latest"><img src="https://img.shields.io/github/v/release/your_username/EpubReader?label=download%20apk&color=208AEF" alt="Latest Release"></a>
+    <a href="https://github.com/crsx71223/EpubReader/releases/tag/1.0">Latest Release
   </p>
 </div>
 
@@ -61,7 +61,7 @@ EpubReader is a local mobile application that parses and displays `.epub` files 
 
 ## Quick Install (Android)
 
-If you don't want to build from source, grab the latest signed APK straight from the [**Releases**](https://github.com/your_username/EpubReader/releases) page, download it to your Android device, and install it directly — you may need to enable "Install unknown apps" for your browser or file manager the first time.
+If you don't want to build from source, grab the latest signed APK straight from the [**Releases**](https://github.com/crsx71223/EpubReader/releases) page, download it to your Android device, and install it directly — you may need to enable "Install unknown apps" for your browser or file manager the first time.
 
 This is the fastest way to try EpubReader: no Node.js, no Expo account, no build step.
 

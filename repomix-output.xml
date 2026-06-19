@@ -64,6 +64,7 @@ assets/reader.html
 CLAUDE.md
 eas.json
 eslint.config.js
+jest.config.js
 LICENSE
 metro.config.js
 package.json
@@ -73,6 +74,9 @@ src/app/index.tsx
 src/app/reader.tsx
 src/app/settings.tsx
 src/components/BookCard.tsx
+src/components/ErrorBoundary.test.tsx
+src/components/ErrorBoundary.tsx
+src/components/ReaderHeader.tsx
 src/constants/theme.ts
 src/global.css
 src/store/bookStore.ts
@@ -137,6 +141,24 @@ Read the exact versioned docs at https://docs.expo.dev/versions/v56.0.0/ before 
     "production": {}
   }
 }
+</file>
+
+<file path="jest.config.js">
+module.exports = {
+  preset: "jest-expo",
+  transform: {
+    "^.+\\.(ts|tsx)$": [
+      "ts-jest",
+      {
+        tsconfig: "tsconfig.json",
+        diagnostics: false,
+      },
+    ],
+  },
+  transformIgnorePatterns: [
+    "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|react-navigation|@react-navigation/.*|sentry-expo|native-base|react-native-svg)",
+  ],
+};
 </file>
 
 <file path="LICENSE">
@@ -229,6 +251,300 @@ Join our community of developers creating universal apps.
 
 - [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
 - [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+</file>
+
+<file path="src/components/ErrorBoundary.test.tsx">
+import { afterAll, beforeAll, describe, expect, it, jest } from "@jest/globals";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react-native";
+import { Text } from "react-native";
+import ErrorBoundary from "./ErrorBoundary";
+
+// Resolve the "process.env.EXPO_OS is not defined" warning
+process.env.EXPO_OS = "ios";
+
+// Mock the native haptics module to prevent crashes in the test environment
+jest.mock("expo-haptics", () => ({
+  impactAsync: jest.fn(),
+  ImpactFeedbackStyle: { Medium: "medium" },
+}));
+
+// Mock the Zustand store to provide a predictable theme state
+jest.mock("../store/settingsStore", () => ({
+  useSettingsStore: () => ({ isDarkMode: false }),
+}));
+
+// @ts-ignore - Bypassing strict type checking to prevent Babel parsing crash
+const ProblemChild = ({ shouldThrow = false }) => {
+  if (shouldThrow) {
+    throw new Error("Simulated rendering failure");
+  }
+  return <Text>Normal Content</Text>;
+};
+
+describe("ErrorBoundary", () => {
+  // Prevent React's intentional error boundaries from cluttering the test console output
+  beforeAll(() => {
+    jest.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterAll(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("renders children correctly when no error is thrown", async () => {
+    await render(
+      <ErrorBoundary>
+        <ProblemChild />
+      </ErrorBoundary>,
+    );
+
+    expect(screen.getByText("Normal Content")).toBeTruthy();
+    expect(screen.queryByText("Oops! Something went wrong.")).toBeNull();
+  });
+
+  it("catches rendering errors and displays the fallback UI", async () => {
+    await render(
+      <ErrorBoundary>
+        <ProblemChild shouldThrow={true} />
+      </ErrorBoundary>,
+    );
+
+    expect(screen.getByText("Oops! Something went wrong.")).toBeTruthy();
+    expect(screen.getByText("Simulated rendering failure")).toBeTruthy();
+    expect(screen.queryByText("Normal Content")).toBeNull();
+  });
+
+  it("resets the error state and attempts to render children when 'Try Again' is pressed", async () => {
+    const { rerender } = await render(
+      <ErrorBoundary>
+        <ProblemChild shouldThrow={true} />
+      </ErrorBoundary>,
+    );
+
+    // Verify the fallback is currently displayed
+    expect(screen.getByText("Oops! Something went wrong.")).toBeTruthy();
+
+    // Rerender the tree with the repaired component that will no longer throw
+    await rerender(
+      <ErrorBoundary>
+        <ProblemChild shouldThrow={false} />
+      </ErrorBoundary>,
+    );
+
+    // Press the recovery button
+    const retryButton = screen.getByText("Try Again");
+    fireEvent.press(retryButton);
+
+    // Wait for React to process the state update and re-render the DOM
+    await waitFor(() => {
+      expect(screen.queryByText("Oops! Something went wrong.")).toBeNull();
+      expect(screen.getByText("Normal Content")).toBeTruthy();
+    });
+  });
+});
+</file>
+
+<file path="src/components/ErrorBoundary.tsx">
+import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
+import { Component, ErrorInfo, ReactNode } from "react";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { BorderRadius, Colors, Spacing, Typography } from "../constants/theme";
+import { useSettingsStore } from "../store/settingsStore";
+
+interface Props {
+  children: ReactNode;
+  theme: typeof Colors.light | typeof Colors.dark;
+}
+
+interface State {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class ErrorBoundaryInner extends Component<Props, State> {
+  public state: State = {
+    hasError: false,
+    error: null,
+  };
+
+  public static getDerivedStateFromError(error: Error): State {
+    return { hasError: true, error };
+  }
+
+  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error("Uncaught rendering error:", error, errorInfo);
+  }
+
+  private handleReset = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    this.setState({ hasError: false, error: null });
+  };
+
+  public render() {
+    if (this.state.hasError) {
+      const { theme } = this.props;
+
+      return (
+        <View style={[styles.container, { backgroundColor: theme.background }]}>
+          <Ionicons
+            name="alert-circle-outline"
+            size={64}
+            color={theme.danger}
+            style={styles.icon}
+          />
+          <Text style={[styles.title, { color: theme.text }]}>
+            Oops! Something went wrong.
+          </Text>
+          <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
+            {this.state.error?.message ||
+              "An unexpected error occurred while rendering the screen."}
+          </Text>
+          <TouchableOpacity
+            style={[styles.button, { backgroundColor: theme.primary }]}
+            onPress={this.handleReset}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.buttonText, { color: theme.textInverse }]}>
+              Try Again
+            </Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+export default function ErrorBoundary({ children }: { children: ReactNode }) {
+  const { isDarkMode } = useSettingsStore();
+  const theme = isDarkMode ? Colors.dark : Colors.light;
+
+  return <ErrorBoundaryInner theme={theme}>{children}</ErrorBoundaryInner>;
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.xl,
+  },
+  icon: {
+    marginBottom: Spacing.lg,
+  },
+  title: {
+    fontSize: Typography.sizes.xl,
+    fontWeight: Typography.weights.bold,
+    marginBottom: Spacing.md,
+    textAlign: "center",
+  },
+  subtitle: {
+    fontSize: Typography.sizes.md,
+    textAlign: "center",
+    marginBottom: Spacing.xxl,
+    lineHeight: Typography.lineHeights.md,
+  },
+  button: {
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xl,
+    borderRadius: BorderRadius.md,
+  },
+  buttonText: {
+    fontSize: Typography.sizes.md,
+    fontWeight: Typography.weights.semibold,
+  },
+});
+</file>
+
+<file path="src/components/ReaderHeader.tsx">
+import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
+import { Link, useRouter } from "expo-router";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Colors, Spacing } from "../constants/theme";
+import { useSettingsStore } from "../store/settingsStore";
+
+interface ReaderHeaderProps {
+  title: string;
+}
+
+export default function ReaderHeader({ title }: ReaderHeaderProps) {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { isDarkMode } = useSettingsStore();
+  const theme = isDarkMode ? Colors.dark : Colors.light;
+
+  const handleBackPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.back();
+  };
+
+  const handleSettingsPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  return (
+    <View
+      style={[
+        styles.customHeader,
+        { paddingTop: insets.top, backgroundColor: theme.background },
+      ]}
+    >
+      <TouchableOpacity
+        onPress={handleBackPress}
+        hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+        style={styles.headerButton}
+      >
+        <Ionicons name="chevron-back" size={28} color={theme.text} />
+      </TouchableOpacity>
+
+      <Text
+        style={[styles.headerTitle, { color: theme.text }]}
+        numberOfLines={1}
+      >
+        {title}
+      </Text>
+
+      <Link href="/settings" asChild>
+        <TouchableOpacity
+          onPress={handleSettingsPress}
+          hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+          style={{ ...styles.headerButton, alignItems: "flex-end" }}
+        >
+          <Ionicons name="settings-outline" size={40} color={theme.text} />
+        </TouchableOpacity>
+      </Link>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  customHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.md,
+    zIndex: 10,
+  },
+  headerButton: {
+    width: 40,
+  },
+  headerTitle: {
+    fontSize: 17,
+    fontWeight: "600",
+    flex: 1,
+    textAlign: "center",
+  },
+});
 </file>
 
 <file path="src/global.css">
@@ -512,121 +828,6 @@ module.exports = defineConfig([
 ]);
 </file>
 
-<file path="src/app/settings.tsx">
-import { StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
-import { useSettingsStore } from "../store/settingsStore";
-
-const AVAILABLE_FONTS = ["System", "Serif", "Monospace"];
-
-export default function SettingsScreen() {
-  const { isDarkMode, toggleTheme, currentFont, setFont } = useSettingsStore();
-
-  return (
-    <View style={[styles.container, isDarkMode && styles.containerDark]}>
-      <Text style={[styles.title, isDarkMode && styles.textDark]}>
-        Settings
-      </Text>
-
-      {/* Theme Toggle */}
-      <View style={[styles.card, isDarkMode && styles.cardDark]}>
-        <Text style={[styles.label, isDarkMode && styles.textDark]}>
-          Dark Mode
-        </Text>
-        <Switch value={isDarkMode} onValueChange={toggleTheme} />
-      </View>
-
-      {/* Font Selection */}
-      <View
-        style={[
-          styles.card,
-          styles.cardVertical,
-          isDarkMode && styles.cardDark,
-        ]}
-      >
-        <Text
-          style={[
-            styles.label,
-            styles.marginBottom,
-            isDarkMode && styles.textDark,
-          ]}
-        >
-          Reader Font
-        </Text>
-        <View style={styles.fontRow}>
-          {AVAILABLE_FONTS.map((font) => (
-            <TouchableOpacity
-              key={font}
-              style={[
-                styles.fontButton,
-                currentFont === font && styles.fontButtonActive,
-                isDarkMode && currentFont !== font && styles.fontButtonDark,
-              ]}
-              onPress={() => setFont(font)}
-            >
-              <Text
-                style={[
-                  styles.fontButtonText,
-                  currentFont === font && styles.fontButtonTextActive,
-                  isDarkMode && currentFont !== font && styles.textDark,
-                ]}
-              >
-                {font}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: "#F2F2F7" },
-  containerDark: { backgroundColor: "#000000" },
-  title: { fontSize: 32, fontWeight: "bold", marginBottom: 24, color: "#000" },
-  textDark: { color: "#FFFFFF" },
-  card: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: "#FFF",
-    padding: 16,
-    borderRadius: 10,
-    marginBottom: 16,
-  },
-  cardVertical: { flexDirection: "column", alignItems: "flex-start" },
-  cardDark: { backgroundColor: "#1C1C1E" },
-  label: { fontSize: 16, fontWeight: "500", color: "#000" },
-  marginBottom: { marginBottom: 16 },
-  fontRow: { flexDirection: "row", gap: 10, flexWrap: "wrap" },
-  fontButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#D1D1D6",
-  },
-  fontButtonDark: { borderColor: "#3A3A3C" },
-  fontButtonActive: { backgroundColor: "#007AFF", borderColor: "#007AFF" },
-  fontButtonText: { color: "#000" },
-  fontButtonTextActive: { color: "#FFF", fontWeight: "bold" },
-});
-</file>
-
-<file path="tsconfig.json">
-{
-  "extends": "expo/tsconfig.base",
-  "compilerOptions": {
-    "strict": true,
-    "paths": {
-      "@/*": ["./src/*"],
-      "@/assets/*": ["./assets/*"]
-    }
-  },
-  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"]
-}
-</file>
-
 <file path=".gitignore">
 # Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
 
@@ -675,147 +876,6 @@ example
 # for repomix
 repomix-instruction.xml
 repomix-output.xml
-</file>
-
-<file path="assets/reader.html">
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.5/jszip.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"></script>
-  <style>
-    body { margin: 0; padding: 0; width: 100vw; height: 100vh; background-color: #ffffff; }
-    #viewer { width: 100%; height: 100%; }
-  </style>
-</head>
-<body>
-  <div id="viewer"></div>
-
-  <script>
-    window.currentSettings = null;
-    window.rendition = null;
-
-    function applySettings() {
-      if (!window.currentSettings || !window.rendition) return;
-      const data = window.currentSettings;
-      try {
-          if (data.isDarkMode) {
-            window.rendition.themes.override('color', '#FFFFFF');
-            window.rendition.themes.override('background', '#000000');
-            document.body.style.backgroundColor = '#000000';
-          } else {
-            window.rendition.themes.override('color', '#000000');
-            window.rendition.themes.override('background', '#FFFFFF');
-            document.body.style.backgroundColor = '#FFFFFF';
-          }
-          const font = data.currentFont === 'System' ? '-apple-system, system-ui, sans-serif' : data.currentFont;
-          window.rendition.themes.override('font-family', font);
-      } catch(e) {
-          console.error('Theme Error:', e);
-      }
-    }
-
-    function handleNativeMessage(event) {
-      try {
-        const msg = event.data;
-        if (typeof msg !== 'string') return;
-
-        if (msg.startsWith("SETTINGS:")) {
-          window.currentSettings = JSON.parse(msg.substring(9));
-          applySettings();
-        } 
-        else if (msg.startsWith("BOOK:")) {
-          const base64 = msg.substring(5);
-          
-          window.book = ePub(base64, { encoding: "base64" });
-          
-          window.rendition = window.book.renderTo("viewer", {
-            width: "100%",
-            height: "100%",
-            manager: "continuous",
-            flow: "scrolled",
-          });
-          
-          window.rendition.display().then(function() {
-            applySettings();
-          }).catch(function(err) {
-            console.error('Display Error:', err);
-          });
-        }
-      } catch (err) {
-        console.error('Listener Error:', err);
-      }
-    }
-
-    window.addEventListener("message", handleNativeMessage);
-    document.addEventListener("message", handleNativeMessage);
-
-    function notifyReady() {
-      if (window.ReactNativeWebView) {
-        window.ReactNativeWebView.postMessage("READY");
-      } else {
-        setTimeout(notifyReady, 50);
-      }
-    }
-    notifyReady();
-  </script>
-</body>
-</html>
-</file>
-
-<file path="src/constants/theme.ts">
-import { Platform } from "react-native";
-
-export const Colors = {
-  light: {
-    text: "#11181C",
-    textSecondary: "#687076",
-    background: "#F2F4F7",
-    surface: "#FFFFFF",
-    border: "#D7DBDF",
-    primary: "#007AFF",
-  },
-  dark: {
-    text: "#ECEDEE",
-    textSecondary: "#9BA1A6",
-    background: "#111111",
-    surface: "#1C1C1E",
-    border: "#2B2D31",
-    primary: "#0A84FF",
-  },
-} as const;
-
-export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
-
-export const Fonts = Platform.select({
-  ios: {
-    sans: "system-ui",
-    serif: "ui-serif",
-    rounded: "ui-rounded",
-    mono: "ui-monospace",
-  },
-  default: {
-    sans: "normal",
-    serif: "serif",
-    rounded: "normal",
-    mono: "monospace",
-  },
-});
-
-export const Spacing = {
-  half: 2,
-  one: 4,
-  two: 8,
-  three: 12,
-  four: 16,
-  five: 24,
-  six: 32,
-} as const;
-
-export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
-export const MaxContentWidth = 800;
 </file>
 
 <file path="src/store/bookStore.ts">
@@ -923,252 +983,166 @@ export async function getLibraryFiles() {
 }
 </file>
 
-<file path="src/app/reader.tsx">
-import { Ionicons } from "@expo/vector-icons";
-import { Asset } from "expo-asset";
-import * as FileSystem from "expo-file-system/legacy";
-import { Link, Stack } from "expo-router";
-import { useEffect, useRef, useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
-import { WebView } from "react-native-webview";
-import { useBookStore } from "../store/bookStore";
-import { useSettingsStore } from "../store/settingsStore";
-
-export default function ReaderScreen() {
-  const uri = useBookStore((state) => state.currentBookUri);
-  const books = useBookStore((state) => state.books);
-  const title = books.find((b) => b.uri === uri)?.title || "Reader";
-
-  const { isDarkMode, currentFont } = useSettingsStore();
-
-  const [htmlContent, setHtmlContent] = useState<string | null>(null);
-  const [base64Book, setBase64Book] = useState<string | null>(null);
-  const webViewRef = useRef<WebView>(null);
-
-  useEffect(() => {
-    async function loadHtml() {
-      const [asset] = await Asset.loadAsync(
-        require("../../assets/reader.html"),
-      );
-      const content = await FileSystem.readAsStringAsync(asset.localUri!);
-      setHtmlContent(content);
-    }
-    loadHtml();
-  }, []);
-
-  useEffect(() => {
-    async function loadBookData() {
-      if (!uri) return;
-      try {
-        const base64 = await FileSystem.readAsStringAsync(uri, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
-        setBase64Book(base64);
-      } catch (error) {
-        console.error("Failed to load book:", error);
-        Alert.alert("Error", "Could not load the book file.");
-      }
-    }
-    loadBookData();
-  }, [uri]);
-
-  useEffect(() => {
-    if (webViewRef.current) {
-      const settingsPayload =
-        "SETTINGS:" + JSON.stringify({ isDarkMode, currentFont });
-      webViewRef.current.postMessage(settingsPayload);
-    }
-  }, [isDarkMode, currentFont]);
-
-  if (!uri) {
-    return (
-      <View style={[styles.container, isDarkMode && styles.containerDark]}>
-        <Text style={styles.fallbackText}>No book selected.</Text>
-      </View>
-    );
+<file path="tsconfig.json">
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "types": ["jest"],
+    "isolatedModules": true
   }
-
-  const isReady = htmlContent && base64Book;
-
-  return (
-    <View style={[styles.container, isDarkMode && styles.containerDark]}>
-      <Stack.Screen
-        options={{
-          title: title,
-          headerStyle: { backgroundColor: isDarkMode ? "#000" : "#fff" },
-          headerTintColor: isDarkMode ? "#fff" : "#000",
-          headerRight: () => (
-            <Link href="/settings" asChild>
-              <TouchableOpacity
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Ionicons
-                  name="settings-outline"
-                  size={24}
-                  color={isDarkMode ? "#fff" : "#000"}
-                  style={{ marginRight: 15 }}
-                />
-              </TouchableOpacity>
-            </Link>
-          ),
-        }}
-      />
-
-      {!isReady ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#007AFF" />
-        </View>
-      ) : (
-        <WebView
-          ref={webViewRef}
-          originWhitelist={["*"]}
-          source={{ html: htmlContent, baseUrl: "" }}
-          allowFileAccess={true}
-          allowFileAccessFromFileURLs={true}
-          allowUniversalAccessFromFileURLs={true}
-          mixedContentMode="always"
-          style={styles.webview}
-          javaScriptEnabled={true}
-          domStorageEnabled={true}
-          onMessage={(event) => {
-            const data = event.nativeEvent.data;
-
-            if (data === "READY" && base64Book) {
-              webViewRef.current?.postMessage("BOOK:" + base64Book);
-
-              const initialSettings =
-                "SETTINGS:" + JSON.stringify({ isDarkMode, currentFont });
-              webViewRef.current?.postMessage(initialSettings);
-            } else if (data.startsWith("LOG:")) {
-              console.log("[WebView Console] ->", data.substring(4));
-            }
-          }}
-        />
-      )}
-    </View>
-  );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
-  containerDark: { backgroundColor: "#000" },
-  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
-  webview: { flex: 1 },
-  fallbackText: { textAlign: "center", marginTop: 50, color: "gray" },
-});
 </file>
 
-<file path="src/components/BookCard.tsx">
-import { Image } from "expo-image";
-import { useRouter } from "expo-router";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { Colors, Spacing } from "../constants/theme";
-import { Book, useBookStore } from "../store/bookStore";
+<file path="src/constants/theme.ts">
+import { Platform, ViewStyle } from "react-native";
 
-type BookCardProps = Pick<Book, "title" | "author" | "coverUri" | "uri">;
+export const Colors = {
+  light: {
+    // Backgrounds
+    background: "#F2F4F7",
+    surface: "#FFFFFF",
+    surfaceSecondary: "#F8F9FA",
 
-export default function BookCard({
-  title,
-  author,
-  coverUri,
-  uri,
-}: BookCardProps) {
-  const router = useRouter();
-  const setCurrentBook = useBookStore((state) => state.setCurrentBook);
+    // Text
+    text: "#11181C",
+    textSecondary: "#687076",
+    textInverse: "#FFFFFF",
 
-  const handlePress = () => {
-    setCurrentBook(uri);
-    router.push("/reader");
-  };
+    // Borders & Dividers
+    border: "#D7DBDF",
 
-  return (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={handlePress}
-      activeOpacity={0.7}
-    >
-      {coverUri ? (
-        <Image
-          source={{ uri: coverUri }}
-          style={styles.cover}
-          contentFit="cover"
-        />
-      ) : (
-        <View style={styles.coverPlaceholder}>
-          <Text style={styles.placeholderIcon}>📖</Text>
-        </View>
-      )}
+    // Semantic & Brand
+    primary: "#007AFF",
+    primaryMuted: "#E5F0FF",
+    success: "#34C759",
+    danger: "#FF3B30",
+    warning: "#FF9500",
+  },
+  dark: {
+    // Backgrounds
+    background: "#000000",
+    surface: "#1C1C1E",
+    surfaceSecondary: "#2C2C2E",
 
-      <View style={styles.info}>
-        <Text style={styles.title} numberOfLines={3}>
-          {title}
-        </Text>
-        {author && (
-          <Text style={styles.author} numberOfLines={1}>
-            {author}
-          </Text>
-        )}
-      </View>
-    </TouchableOpacity>
-  );
-}
+    // Text
+    text: "#F2F2F7",
+    textSecondary: "#EBEBF599", // iOS dark mode secondary text standard
+    textInverse: "#11181C",
 
-const styles = StyleSheet.create({
-  card: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: Colors.light.surface,
-    borderRadius: 8,
-    marginBottom: Spacing.two,
-    padding: Spacing.three,
-    gap: Spacing.three,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 3,
-    elevation: 2,
+    // Borders & Dividers
+    border: "#38383A",
+
+    // Semantic & Brand
+    primary: "#0A84FF",
+    primaryMuted: "#002E5C",
+    success: "#32D74B",
+    danger: "#FF453A",
+    warning: "#FF9F0A",
   },
-  cover: {
-    width: 60,
-    height: 88,
-    borderRadius: 4,
-    backgroundColor: Colors.light.border,
+} as const;
+
+export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
+
+export const Typography = {
+  sizes: {
+    xs: 12,
+    sm: 14,
+    md: 16,
+    lg: 18,
+    xl: 20,
+    xxl: 24,
+    xxxl: 32,
   },
-  coverPlaceholder: {
-    width: 60,
-    height: 88,
-    borderRadius: 4,
-    backgroundColor: Colors.light.background,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-    justifyContent: "center",
-    alignItems: "center",
+  lineHeights: {
+    xs: 16,
+    sm: 20,
+    md: 24,
+    lg: 28,
+    xl: 28,
+    xxl: 32,
+    xxxl: 40,
   },
-  placeholderIcon: {
-    fontSize: 24,
+  weights: {
+    regular: "400" as const,
+    medium: "500" as const,
+    semibold: "600" as const,
+    bold: "700" as const,
   },
-  info: {
-    flex: 1,
-    gap: Spacing.one,
+};
+
+export const Fonts = Platform.select({
+  ios: {
+    sans: "system-ui",
+    serif: "ui-serif",
+    rounded: "ui-rounded",
+    mono: "ui-monospace",
   },
-  title: {
-    fontSize: 15,
-    fontWeight: "500",
-    color: Colors.light.text,
-    lineHeight: 20,
-  },
-  author: {
-    fontSize: 13,
-    color: Colors.light.textSecondary,
+  default: {
+    sans: "normal",
+    serif: "serif",
+    rounded: "normal",
+    mono: "monospace",
   },
 });
+
+export const Spacing = {
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 24,
+  xxl: 32,
+  xxxl: 48,
+} as const;
+
+export const BorderRadius = {
+  sm: 4,
+  md: 8,
+  lg: 12,
+  xl: 16,
+  round: 9999,
+} as const;
+
+export const Shadows = {
+  light: {
+    sm: {
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05,
+      shadowRadius: 2,
+      elevation: 2,
+    } as ViewStyle,
+    md: {
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 4,
+    } as ViewStyle,
+  },
+  dark: {
+    sm: {
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.2,
+      shadowRadius: 2,
+      elevation: 2,
+    } as ViewStyle,
+    md: {
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.3,
+      shadowRadius: 4,
+      elevation: 4,
+    } as ViewStyle,
+  },
+};
+
+export const Layout = {
+  BottomTabInset: Platform.select({ ios: 50, android: 80 }) ?? 0,
+  MaxContentWidth: 800,
+};
 </file>
 
 <file path="app.json">
@@ -1235,30 +1209,401 @@ const styles = StyleSheet.create({
 }
 </file>
 
+<file path="assets/reader.html">
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.5/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"></script>
+  <style>
+    body { margin: 0; padding: 0; width: 100vw; height: 100vh; background-color: transparent; }
+    #viewer { width: 100%; height: 100%; }
+  </style>
+</head>
+<body>
+  <div id="viewer"></div>
+
+  <script>
+    window.currentSettings = null;
+    window.rendition = null;
+
+    function applySettings() {
+      if (!window.currentSettings || !window.rendition) return;
+      const data = window.currentSettings;
+      
+      try {
+          const textColor = data.colors ? data.colors.text : '#11181C';
+          const bgColor = data.colors ? data.colors.background : '#F2F4F7';
+
+          document.body.style.backgroundColor = bgColor;
+
+          let fontStack = '-apple-system, system-ui, sans-serif';
+          if (data.currentFont === 'Serif') {
+            fontStack = 'Georgia, "Times New Roman", serif';
+          } else if (data.currentFont === 'Monospace') {
+            fontStack = 'ui-monospace, "Courier New", monospace';
+          }
+
+          window.rendition.themes.register("dynamicTheme", {
+            "body": {
+              "background": `${bgColor} !important`,
+              "background-color": `${bgColor} !important`
+            },
+            "p, span, div, h1, h2, h3, h4, h5, h6, li, blockquote, a": {
+              "color": `${textColor} !important`,
+              "font-family": `${fontStack} !important`,
+              "background-color": "transparent !important"
+            }
+          });
+          
+          window.rendition.themes.select("dynamicTheme");
+
+      } catch(e) {
+          console.error('Theme Error:', e);
+      }
+    }
+
+    function handleNativeMessage(event) {
+      try {
+        const msg = event.data;
+        if (typeof msg !== 'string') return;
+
+        if (msg.startsWith("SETTINGS:")) {
+          window.currentSettings = JSON.parse(msg.substring(9));
+          applySettings();
+        } 
+        else if (msg.startsWith("BOOK:")) {
+          const base64 = msg.substring(5);
+          
+          window.book = ePub(base64, { encoding: "base64" });
+          
+          window.rendition = window.book.renderTo("viewer", {
+            width: "100%",
+            height: "100%",
+            manager: "continuous",
+            flow: "scrolled",
+          });
+          
+          window.rendition.display().then(function() {
+            applySettings();
+          }).catch(function(err) {
+            console.error('Display Error:', err);
+          });
+        }
+      } catch (err) {
+        console.error('Listener Error:', err);
+      }
+    }
+
+    window.addEventListener("message", handleNativeMessage);
+    document.addEventListener("message", handleNativeMessage);
+
+    function notifyReady() {
+      if (window.ReactNativeWebView) {
+        window.ReactNativeWebView.postMessage("READY");
+      } else {
+        setTimeout(notifyReady, 50);
+      }
+    }
+    notifyReady();
+  </script>
+</body>
+</html>
+</file>
+
+<file path="src/components/BookCard.tsx">
+import * as Haptics from "expo-haptics";
+import { Image } from "expo-image";
+import { useRouter } from "expo-router";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  BorderRadius,
+  Colors,
+  Shadows,
+  Spacing,
+  Typography,
+} from "../constants/theme";
+import { Book, useBookStore } from "../store/bookStore";
+import { useSettingsStore } from "../store/settingsStore";
+
+type BookCardProps = Pick<Book, "title" | "author" | "coverUri" | "uri">;
+
+export default function BookCard({
+  title,
+  author,
+  coverUri,
+  uri,
+}: BookCardProps) {
+  const router = useRouter();
+  const setCurrentBook = useBookStore((state) => state.setCurrentBook);
+  const { isDarkMode } = useSettingsStore();
+
+  const theme = isDarkMode ? Colors.dark : Colors.light;
+  const shadow = isDarkMode ? Shadows.dark.sm : Shadows.light.sm;
+
+  const handlePress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setCurrentBook(uri);
+    router.push("/reader");
+  };
+
+  return (
+    <TouchableOpacity
+      style={[styles.card, { backgroundColor: theme.surface }, shadow]}
+      onPress={handlePress}
+      activeOpacity={0.7}
+    >
+      {coverUri ? (
+        <Image
+          source={{ uri: coverUri }}
+          style={[styles.cover, { backgroundColor: theme.border }]}
+          contentFit="cover"
+        />
+      ) : (
+        <View
+          style={[
+            styles.coverPlaceholder,
+            { backgroundColor: theme.background, borderColor: theme.border },
+          ]}
+        >
+          <Text style={styles.placeholderIcon}>📖</Text>
+        </View>
+      )}
+
+      <View style={styles.info}>
+        <Text style={[styles.title, { color: theme.text }]} numberOfLines={3}>
+          {title}
+        </Text>
+        {author && (
+          <Text
+            style={[styles.author, { color: theme.textSecondary }]}
+            numberOfLines={1}
+          >
+            {author}
+          </Text>
+        )}
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.sm,
+    padding: Spacing.md,
+    gap: Spacing.md,
+  },
+  cover: { width: 60, height: 88, borderRadius: BorderRadius.sm },
+  coverPlaceholder: {
+    width: 60,
+    height: 88,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  placeholderIcon: { fontSize: Typography.sizes.xxl },
+  info: { flex: 1, gap: Spacing.xs },
+  title: {
+    fontSize: Typography.sizes.md,
+    fontWeight: Typography.weights.medium,
+    lineHeight: Typography.lineHeights.md,
+  },
+  author: { fontSize: Typography.sizes.sm },
+});
+</file>
+
+<file path="src/app/settings.tsx">
+import * as Haptics from "expo-haptics";
+import { useRouter } from "expo-router";
+import { StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
+import { BorderRadius, Colors, Spacing, Typography } from "../constants/theme";
+import { useSettingsStore } from "../store/settingsStore";
+
+const AVAILABLE_FONTS = ["System", "Serif", "Monospace"];
+
+export default function SettingsScreen() {
+  const router = useRouter();
+  const { isDarkMode, toggleTheme, currentFont, setFont } = useSettingsStore();
+  const theme = isDarkMode ? Colors.dark : Colors.light;
+
+  const handleToggleTheme = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    toggleTheme();
+  };
+
+  const handleSetFont = (font: string) => {
+    if (font !== currentFont) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setFont(font);
+    }
+  };
+
+  return (
+    <View style={styles.overlay}>
+      <TouchableOpacity
+        style={styles.backdrop}
+        activeOpacity={1}
+        onPress={() => router.back()}
+      />
+
+      <View style={[styles.sheet, { backgroundColor: theme.background }]}>
+        <Text style={[styles.title, { color: theme.text }]}>Settings</Text>
+
+        <View style={[styles.card, { backgroundColor: theme.surface }]}>
+          <Text style={[styles.label, { color: theme.text }]}>Dark Mode</Text>
+          <Switch
+            value={isDarkMode}
+            onValueChange={handleToggleTheme}
+            trackColor={{ true: theme.primary }}
+          />
+        </View>
+
+        <View
+          style={[
+            styles.card,
+            styles.cardVertical,
+            { backgroundColor: theme.surface },
+          ]}
+        >
+          <Text
+            style={[styles.label, styles.marginBottom, { color: theme.text }]}
+          >
+            Reader Font
+          </Text>
+          <View style={styles.fontRow}>
+            {AVAILABLE_FONTS.map((font) => (
+              <TouchableOpacity
+                key={font}
+                style={[
+                  styles.fontButton,
+                  { borderColor: theme.border },
+                  currentFont === font && {
+                    backgroundColor: theme.primary,
+                    borderColor: theme.primary,
+                  },
+                ]}
+                onPress={() => handleSetFont(font)}
+              >
+                <Text
+                  style={[
+                    styles.fontButtonText,
+                    { color: theme.text },
+                    currentFont === font && {
+                      color: theme.textInverse,
+                      fontWeight: Typography.weights.bold,
+                    },
+                  ]}
+                >
+                  {font}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  backdrop: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
+  },
+  sheet: {
+    padding: Spacing.xl,
+    paddingBottom: Spacing.xxxl,
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  title: {
+    fontSize: Typography.sizes.xxl,
+    fontWeight: Typography.weights.bold,
+    marginBottom: Spacing.xl,
+  },
+  card: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    marginBottom: Spacing.lg,
+  },
+  cardVertical: { flexDirection: "column", alignItems: "flex-start" },
+  label: {
+    fontSize: Typography.sizes.md,
+    fontWeight: Typography.weights.medium,
+  },
+  marginBottom: { marginBottom: Spacing.lg },
+  fontRow: { flexDirection: "row", gap: Spacing.sm, flexWrap: "wrap" },
+  fontButton: {
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+  },
+  fontButtonText: { fontSize: Typography.sizes.md },
+});
+</file>
+
 <file path="src/app/_layout.tsx">
 import { Stack } from "expo-router";
+import ErrorBoundary from "../components/ErrorBoundary";
+import { Colors } from "../constants/theme";
+import { useSettingsStore } from "../store/settingsStore";
 
 export default function RootLayout() {
+  const { isDarkMode } = useSettingsStore();
+  const theme = isDarkMode ? Colors.dark : Colors.light;
+
   return (
-    <Stack>
-      {/* Library */}
-      <Stack.Screen
-        name="index"
-        options={{ headerShown: false, animation: "none" }}
-      />
+    <ErrorBoundary>
+      <Stack
+        screenOptions={{
+          headerStyle: { backgroundColor: theme.background },
+          headerTintColor: theme.text,
+          headerShadowVisible: false,
+        }}
+      >
+        <Stack.Screen
+          name="index"
+          options={{ headerShown: false, animation: "none" }}
+        />
 
-      {/* Reader */}
-      <Stack.Screen
-        name="reader"
-        options={{ title: "Reader", animation: "none" }}
-      />
+        <Stack.Screen
+          name="reader"
+          options={{ title: "Reader", animation: "none" }}
+        />
 
-      {/* Settings */}
-      <Stack.Screen
-        name="settings"
-        options={{ title: "Settings", animation: "none" }}
-      />
-    </Stack>
+        <Stack.Screen
+          name="settings"
+          options={{
+            presentation: "transparentModal",
+            animation: "fade",
+            headerShown: false,
+          }}
+        />
+      </Stack>
+    </ErrorBoundary>
   );
 }
 </file>
@@ -1274,10 +1619,14 @@ import {
   View,
 } from "react-native";
 import BookCard from "../components/BookCard";
+import { Colors, Spacing, Typography } from "../constants/theme";
 import { useBookStore } from "../store/bookStore";
+import { useSettingsStore } from "../store/settingsStore";
 
 export default function LibraryScreen() {
   const { books, isLoading, loadBooks } = useBookStore();
+  const { isDarkMode } = useSettingsStore();
+  const theme = isDarkMode ? Colors.dark : Colors.light;
 
   useEffect(() => {
     loadBooks();
@@ -1285,20 +1634,24 @@ export default function LibraryScreen() {
 
   if (isLoading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#0000ff" />
+      <View style={[styles.center, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={theme.primary} />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.header}>My Library</Text>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <Text style={[styles.header, { color: theme.text }]}>My Library</Text>
 
-      <Button title="Refresh Library" onPress={loadBooks} />
+      <Button
+        title="Refresh Library"
+        onPress={loadBooks}
+        color={theme.primary}
+      />
 
       {books.length === 0 ? (
-        <Text style={styles.emptyText}>
+        <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
           No books found. Add .epub files to the app folder.
         </Text>
       ) : (
@@ -1313,6 +1666,7 @@ export default function LibraryScreen() {
               uri={item.uri}
             />
           )}
+          contentContainerStyle={styles.listContent}
         />
       )}
     </View>
@@ -1320,10 +1674,153 @@ export default function LibraryScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: "#fff" },
+  container: { flex: 1, padding: Spacing.lg },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
-  header: { fontSize: 24, fontWeight: "bold", marginBottom: 20 },
-  emptyText: { textAlign: "center", marginTop: 50, color: "gray" },
+  header: {
+    fontSize: Typography.sizes.xxl,
+    fontWeight: Typography.weights.bold,
+    marginBottom: Spacing.lg,
+  },
+  emptyText: {
+    textAlign: "center",
+    marginTop: Spacing.xxxl,
+    fontSize: Typography.sizes.md,
+  },
+  listContent: { paddingBottom: Spacing.xxl, paddingTop: Spacing.md },
+});
+</file>
+
+<file path="src/app/reader.tsx">
+import { Asset } from "expo-asset";
+import * as FileSystem from "expo-file-system/legacy";
+import * as Haptics from "expo-haptics";
+import { Stack } from "expo-router";
+import { useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Alert, StyleSheet, Text, View } from "react-native";
+import { WebView } from "react-native-webview";
+import ReaderHeader from "../components/ReaderHeader";
+import { Colors, Spacing, Typography } from "../constants/theme";
+import { useBookStore } from "../store/bookStore";
+import { useSettingsStore } from "../store/settingsStore";
+
+export default function ReaderScreen() {
+  const uri = useBookStore((state) => state.currentBookUri);
+  const books = useBookStore((state) => state.books);
+  const title = books.find((b) => b.uri === uri)?.title || "Reader";
+
+  const { isDarkMode, currentFont } = useSettingsStore();
+  const theme = isDarkMode ? Colors.dark : Colors.light;
+
+  const [htmlContent, setHtmlContent] = useState<string | null>(null);
+  const [base64Book, setBase64Book] = useState<string | null>(null);
+  const webViewRef = useRef<WebView>(null);
+
+  useEffect(() => {
+    async function loadHtml() {
+      const [asset] = await Asset.loadAsync(
+        require("../../assets/reader.html"),
+      );
+      const content = await FileSystem.readAsStringAsync(asset.localUri!);
+      setHtmlContent(content);
+    }
+    loadHtml();
+  }, []);
+
+  useEffect(() => {
+    async function loadBookData() {
+      if (!uri) return;
+      try {
+        const base64 = await FileSystem.readAsStringAsync(uri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        setBase64Book(base64);
+      } catch (error) {
+        console.error("Failed to load book:", error);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        Alert.alert("Error", "Could not load the book file.");
+      }
+    }
+    loadBookData();
+  }, [uri]);
+
+  useEffect(() => {
+    if (webViewRef.current) {
+      const settingsPayload =
+        "SETTINGS:" +
+        JSON.stringify({
+          isDarkMode,
+          currentFont,
+          colors: { text: theme.text, background: theme.background },
+        });
+      webViewRef.current.postMessage(settingsPayload);
+    }
+  }, [isDarkMode, currentFont, theme]);
+
+  if (!uri) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
+        <Text style={[styles.fallbackText, { color: theme.textSecondary }]}>
+          No book selected.
+        </Text>
+      </View>
+    );
+  }
+
+  const isReady = htmlContent && base64Book;
+
+  return (
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <Stack.Screen options={{ headerShown: false }} />
+
+      <ReaderHeader title={title} />
+
+      {!isReady ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.primary} />
+        </View>
+      ) : (
+        <WebView
+          ref={webViewRef}
+          originWhitelist={["*"]}
+          source={{ html: htmlContent, baseUrl: "" }}
+          allowFileAccess={true}
+          allowFileAccessFromFileURLs={true}
+          allowUniversalAccessFromFileURLs={true}
+          mixedContentMode="always"
+          style={styles.webview}
+          javaScriptEnabled={true}
+          domStorageEnabled={true}
+          onMessage={(event) => {
+            const data = event.nativeEvent.data;
+            if (data === "READY" && base64Book) {
+              webViewRef.current?.postMessage("BOOK:" + base64Book);
+              const initialSettings =
+                "SETTINGS:" +
+                JSON.stringify({
+                  isDarkMode,
+                  currentFont,
+                  colors: { text: theme.text, background: theme.background },
+                });
+              webViewRef.current?.postMessage(initialSettings);
+            } else if (data.startsWith("LOG:")) {
+              console.log("[WebView Console] ->", data.substring(4));
+            }
+          }}
+        />
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
+  webview: { flex: 1, backgroundColor: "transparent" },
+  fallbackText: {
+    textAlign: "center",
+    marginTop: Spacing.xxxl,
+    fontSize: Typography.sizes.md,
+  },
 });
 </file>
 
@@ -1344,6 +1841,7 @@ const styles = StyleSheet.create({
     "expo-file-system": "~56.0.7",
     "expo-font": "~56.0.5",
     "expo-glass-effect": "~56.0.4",
+    "expo-haptics": "~56.0.3",
     "expo-image": "~56.0.11",
     "expo-linking": "~56.0.13",
     "expo-router": "~56.2.8",
@@ -1352,6 +1850,8 @@ const styles = StyleSheet.create({
     "expo-symbols": "~56.0.5",
     "expo-system-ui": "~56.0.5",
     "expo-web-browser": "~56.0.5",
+    "jest": "~29.7.0",
+    "jest-expo": "~56.0.5",
     "jszip": "^3.10.1",
     "react": "19.2.3",
     "react-dom": "19.2.3",
@@ -1366,13 +1866,17 @@ const styles = StyleSheet.create({
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@testing-library/react-native": "^14.0.0",
+    "@types/jest": "^30.0.0",
     "@types/jszip": "^3.4.0",
     "@types/react": "~19.2.2",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~56.0.4",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.5",
+    "jest-expo": "^56.0.5",
     "prettier": "^3.8.3",
+    "ts-jest": "^29.4.11",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -1382,7 +1886,8 @@ const styles = StyleSheet.create({
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json}\""
+    "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json}\"",
+    "test": "jest"
   },
   "private": true
 }

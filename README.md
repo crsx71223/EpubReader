@@ -1,56 +1,125 @@
-# Welcome to your Expo app 👋
+<a id="readme-top"></a>
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+<br />
+<div align="center">
+  <img src="assets/images/icon.png" alt="EpubReader Logo" width="80" height="80">
 
-## Get started
+  <h3 align="center">EpubReader</h3>
 
-1. Install dependencies
+  <p align="center">
+    An offline-first mobile EPUB reader featuring dynamic theming, custom typography, and native file system integration.
+  </p>
 
-   ```bash
+  <p align="center">
+    <a href="https://github.com/your_username/EpubReader/releases/latest"><img src="https://img.shields.io/github/v/release/your_username/EpubReader?label=download%20apk&color=208AEF" alt="Latest Release"></a>
+  </p>
+</div>
+
+---
+
+## Table of Contents
+
+- [About The Project](#about-the-project)
+  - [Key Features](#key-features)
+  - [App Showcase & User Flow](#app-showcase--user-flow)
+  - [Built With](#built-with)
+- [Quick Install (Android)](#quick-install-android)
+- [Getting Started](#getting-started)
+  - [Prerequisites](#prerequisites)
+  - [Installation](#installation)
+- [Building for Production](#building-for-production)
+
+## About The Project
+
+EpubReader is a local mobile application that parses and displays `.epub` files directly from the device's storage It extracts book metadata, caches cover images, and renders e-book content through a responsive in-app web view, while letting readers customize their experience with dynamic dark mode and font selection.
+
+### Key Features
+
+- **Local library scanning** — automatically detects `.epub` files from the Files app on iOS, or a user-selected folder on Android via the Storage Access Framework
+- **Dynamic theming** — full dark mode support across the entire app
+- **Custom typography** — switch reading fonts on the fly
+- **Metadata & cover caching** — titles, authors, and covers are parsed once and cached locally for fast subsequent loads
+- **Fully offline** — browsing, opening, and reading books never requires a network connection
+- **Native haptics** — tactile feedback throughout the UI
+
+### App Showcase & User Flow
+
+| Starting App & Folder Access | Reader & Delete | Settings |
+| :---: | :---: | :---: |
+| ![Start](assets/gifs/start.gif) | ![Reader](assets/gifs/reader.gif) | ![Settings](assets/gifs/settings.gif) |
+
+### Built With
+
+* [React Native](https://reactnative.dev/)
+* [Expo](https://expo.dev/)
+* [Expo Router](https://docs.expo.dev/router/introduction/)
+* [Zustand](https://zustand-demo.pmnd.rs/)
+* [TypeScript](https://www.typescriptlang.org/)
+* [Epub.js](https://github.com/futurepress/epub.js/)
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## Quick Install (Android)
+
+Don't want to build from source? Grab the latest signed APK straight from the [**Releases**](https://github.com/your_username/EpubReader/releases) page, download it to your Android device, and install it directly — you may need to enable "Install unknown apps" for your browser or file manager the first time.
+
+This is the fastest way to try EpubReader: no Node.js, no Expo account, no build step.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## Getting Started
+
+To get a local copy up and running, follow these simple steps.
+
+### Prerequisites
+
+Ensure you have Node.js installed on your machine, then make sure npm is up to date:
+
+```sh
+npm install npm@latest -g
+```
+
+### Installation
+
+1. Clone the repo
+
+   ```sh
+   git clone https://github.com/your_username/EpubReader.git
+   cd EpubReader
+   ```
+
+2. Install NPM packages
+
+   ```sh
    npm install
    ```
 
-2. Start the app
+3. Start the dev server
 
-   ```bash
-   npx expo start
+   ```sh
+   npm start
    ```
 
-In the output, you'll find options to open the app in a
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+## Building for Production
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+This project uses [EAS Build](https://docs.expo.dev/build/introduction/) to compile standalone binaries. The `preview` profile in `eas.json` is configured to output a directly installable Android **APK** (rather than a Play Store `.aab` bundle), which is what you need for a fully offline installation outside the Play Store.
 
-## Get a fresh project
+### One-time setup
 
-When you're ready, run:
-
-```bash
-npm run reset-project
+```sh
+npm install -g eas-cli
+eas login
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+### Build the APK
 
-### Other setup steps
+```sh
+eas build --platform android --profile preview
+```
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+This queues a cloud build. Once it finishes, EAS prints a download link (and QR code) for the `.apk` file. Download it to an Android device and install it directly — you may need to enable "Install unknown apps" for your browser or file manager the first time.
 
-## Learn more
 
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+<p align="right">(<a href="#readme-top">back to top</a>)</p>

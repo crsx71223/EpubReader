@@ -37,6 +37,8 @@ export default function ReaderScreen() {
     async function loadBookData() {
       if (!uri) return;
       try {
+        // EPUBs must be passed as Base64 because the WebView cannot directly
+        // access the native file system paths reliably across both iOS and Android.
         const base64 = await FileSystem.readAsStringAsync(uri, {
           encoding: FileSystem.EncodingType.Base64,
         });
@@ -51,6 +53,8 @@ export default function ReaderScreen() {
   }, [uri]);
 
   useEffect(() => {
+    // This effect ensures that physical state changes (like switching to dark mode)
+    // are instantly reflected in the DOM without requiring a full WebView reload.
     if (webViewRef.current) {
       const settingsPayload =
         "SETTINGS:" +
@@ -73,12 +77,13 @@ export default function ReaderScreen() {
     );
   }
 
+  // We gate the rendering of the WebView until BOTH the engine and the data exist.
+  // Rendering the WebView prematurely causes epub.js to crash trying to mount null data.
   const isReady = htmlContent && base64Book;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <Stack.Screen options={{ headerShown: false }} />
-
       <ReaderHeader title={title} />
 
       {!isReady ? (
@@ -99,6 +104,8 @@ export default function ReaderScreen() {
           domStorageEnabled={true}
           onMessage={(event) => {
             const data = event.nativeEvent.data;
+            // The HTML DOM takes time to mount. We wait for this explicit READY ping
+            // from the injected script to avoid sending the massive Base64 string into a void.
             if (data === "READY" && base64Book) {
               webViewRef.current?.postMessage("BOOK:" + base64Book);
               const initialSettings =
@@ -109,8 +116,6 @@ export default function ReaderScreen() {
                   colors: { text: theme.text, background: theme.background },
                 });
               webViewRef.current?.postMessage(initialSettings);
-            } else if (data.startsWith("LOG:")) {
-              console.log("[WebView Console] ->", data.substring(4));
             }
           }}
         />

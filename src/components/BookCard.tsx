@@ -11,6 +11,7 @@ import {
 } from "../constants/theme";
 import { Book, useBookStore } from "../store/bookStore";
 import { useSettingsStore } from "../store/settingsStore";
+import SwipeDelete from "./SwipeDelete";
 
 type BookCardProps = Pick<Book, "title" | "author" | "coverUri" | "uri">;
 
@@ -21,11 +22,16 @@ export default function BookCard({
   uri,
 }: BookCardProps) {
   const router = useRouter();
-  const setCurrentBook = useBookStore((state) => state.setCurrentBook);
+  const { setCurrentBook, deleteBook } = useBookStore();
   const { isDarkMode } = useSettingsStore();
 
   const theme = isDarkMode ? Colors.dark : Colors.light;
   const shadow = isDarkMode ? Shadows.dark.sm : Shadows.light.sm;
+
+  const handleDelete = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    deleteBook(uri);
+  };
 
   const handlePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -34,42 +40,48 @@ export default function BookCard({
   };
 
   return (
-    <TouchableOpacity
-      style={[styles.card, { backgroundColor: theme.surface }, shadow]}
-      onPress={handlePress}
-      activeOpacity={0.7}
+    <SwipeDelete
+      onDelete={handleDelete}
+      dangerColor={theme.danger}
+      iconColor={theme.textInverse}
     >
-      {coverUri ? (
-        <Image
-          source={{ uri: coverUri }}
-          style={[styles.cover, { backgroundColor: theme.border }]}
-          contentFit="cover"
-        />
-      ) : (
-        <View
-          style={[
-            styles.coverPlaceholder,
-            { backgroundColor: theme.background, borderColor: theme.border },
-          ]}
-        >
-          <Text style={styles.placeholderIcon}>📖</Text>
-        </View>
-      )}
-
-      <View style={styles.info}>
-        <Text style={[styles.title, { color: theme.text }]} numberOfLines={3}>
-          {title}
-        </Text>
-        {author && (
-          <Text
-            style={[styles.author, { color: theme.textSecondary }]}
-            numberOfLines={1}
+      <TouchableOpacity
+        style={[styles.card, { backgroundColor: theme.surface }, shadow]}
+        onPress={handlePress}
+        activeOpacity={1}
+      >
+        {coverUri ? (
+          <Image
+            source={{ uri: coverUri }}
+            style={[styles.cover, { backgroundColor: theme.border }]}
+            contentFit="cover"
+          />
+        ) : (
+          <View
+            style={[
+              styles.coverPlaceholder,
+              { backgroundColor: theme.background, borderColor: theme.border },
+            ]}
           >
-            {author}
-          </Text>
+            <Text style={styles.placeholderIcon}>📖</Text>
+          </View>
         )}
-      </View>
-    </TouchableOpacity>
+
+        <View style={styles.info}>
+          <Text style={[styles.title, { color: theme.text }]} numberOfLines={3}>
+            {title}
+          </Text>
+          {author && (
+            <Text
+              style={[styles.author, { color: theme.textSecondary }]}
+              numberOfLines={1}
+            >
+              {author}
+            </Text>
+          )}
+        </View>
+      </TouchableOpacity>
+    </SwipeDelete>
   );
 }
 
@@ -78,7 +90,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     borderRadius: BorderRadius.md,
-    marginBottom: Spacing.sm,
     padding: Spacing.md,
     gap: Spacing.md,
   },

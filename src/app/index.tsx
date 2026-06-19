@@ -13,6 +13,8 @@ import { Colors, Spacing, Typography } from "../constants/theme";
 import { Book, useBookStore } from "../store/bookStore";
 import { useSettingsStore } from "../store/settingsStore";
 
+// Hardcoding the height prevents the FlatList from constantly recalculating layout
+// metrics during rapid scrolling, which is a common cause of frame drops on older Androids.
 const ITEM_HEIGHT = 128;
 
 export default function LibraryScreen() {
@@ -26,6 +28,8 @@ export default function LibraryScreen() {
     loadBooks();
   }, [loadBooks]);
 
+  // Wrapped in useCallback so the FlatList does not destroy and recreate
+  // the render function reference on every single frame during scroll events.
   const renderItem = useCallback(
     ({ item }: { item: Book }) => (
       <BookCard
@@ -59,6 +63,7 @@ export default function LibraryScreen() {
     <View
       style={[
         styles.container,
+        // Math.max guarantees the UI never clips under the notch on modern devices.
         {
           backgroundColor: theme.background,
           paddingTop: Math.max(insets.top, Spacing.lg),
@@ -83,9 +88,13 @@ export default function LibraryScreen() {
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           getItemLayout={getItemLayout}
+          // Limits the initial memory footprint before the user starts interacting
           initialNumToRender={8}
+          // Batches render cycles to prevent the JS thread from locking up
           maxToRenderPerBatch={8}
+          // Keeps only 5 viewports worth of items in memory at a time
           windowSize={5}
+          // Aggressively unmounts off-screen components to save RAM on heavy libraries
           removeClippedSubviews={true}
           contentContainerStyle={styles.listContent}
         />

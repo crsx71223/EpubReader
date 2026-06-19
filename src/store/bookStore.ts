@@ -1,3 +1,4 @@
+import * as FileSystem from "expo-file-system/legacy";
 import { create } from "zustand";
 import { getLibraryFiles } from "../utils/fileSystem";
 
@@ -15,6 +16,7 @@ interface BookStore {
   currentBookUri: string | null;
   loadBooks: () => Promise<void>;
   setCurrentBook: (uri: string | null) => void;
+  deleteBook: (uri: string) => Promise<void>;
 }
 
 export const useBookStore = create<BookStore>((set) => ({
@@ -34,4 +36,18 @@ export const useBookStore = create<BookStore>((set) => ({
   },
 
   setCurrentBook: (uri) => set({ currentBookUri: uri }),
+
+  deleteBook: async (uri) => {
+    try {
+      await FileSystem.deleteAsync(uri, { idempotent: true });
+
+      set((state) => ({
+        books: state.books.filter((book) => book.uri !== uri),
+        currentBookUri:
+          state.currentBookUri === uri ? null : state.currentBookUri,
+      }));
+    } catch (error) {
+      console.error("Failed to delete book:", error);
+    }
+  },
 }));

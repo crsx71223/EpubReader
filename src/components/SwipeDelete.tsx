@@ -32,6 +32,8 @@ export default function SwipeDelete({
   const opacity = useSharedValue<number>(1);
 
   const panGesture = Gesture.Pan()
+    .activeOffsetX([-10, 10])
+    .failOffsetY([-5, 5])
     .onChange((event) => {
       translateX.value = Math.min(0, event.translationX);
     })

@@ -7,6 +7,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import BookCard from "../components/BookCard";
 import { Colors, Spacing, Typography } from "../constants/theme";
 import { Book, useBookStore } from "../store/bookStore";
@@ -17,6 +18,8 @@ const ITEM_HEIGHT = 128;
 export default function LibraryScreen() {
   const { books, isLoading, loadBooks } = useBookStore();
   const { isDarkMode } = useSettingsStore();
+  const insets = useSafeAreaInsets();
+
   const theme = isDarkMode ? Colors.dark : Colors.light;
 
   useEffect(() => {
@@ -53,7 +56,15 @@ export default function LibraryScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: theme.background,
+          paddingTop: Math.max(insets.top, Spacing.lg),
+        },
+      ]}
+    >
       <Text style={[styles.header, { color: theme.text }]}>My Library</Text>
 
       <Button

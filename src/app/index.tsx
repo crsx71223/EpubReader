@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import {
   ActivityIndicator,
   Button,
@@ -9,8 +9,10 @@ import {
 } from "react-native";
 import BookCard from "../components/BookCard";
 import { Colors, Spacing, Typography } from "../constants/theme";
-import { useBookStore } from "../store/bookStore";
+import { Book, useBookStore } from "../store/bookStore";
 import { useSettingsStore } from "../store/settingsStore";
+
+const ITEM_HEIGHT = 128;
 
 export default function LibraryScreen() {
   const { books, isLoading, loadBooks } = useBookStore();
@@ -20,6 +22,27 @@ export default function LibraryScreen() {
   useEffect(() => {
     loadBooks();
   }, [loadBooks]);
+
+  const renderItem = useCallback(
+    ({ item }: { item: Book }) => (
+      <BookCard
+        title={item.title}
+        author={item.author}
+        coverUri={item.coverUri}
+        uri={item.uri}
+      />
+    ),
+    [],
+  );
+
+  const getItemLayout = useCallback(
+    (_data: ArrayLike<Book> | null | undefined, index: number) => ({
+      length: ITEM_HEIGHT,
+      offset: ITEM_HEIGHT * index,
+      index,
+    }),
+    [],
+  );
 
   if (isLoading) {
     return (
@@ -47,14 +70,12 @@ export default function LibraryScreen() {
         <FlatList
           data={books}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <BookCard
-              title={item.title}
-              author={item.author}
-              coverUri={item.coverUri}
-              uri={item.uri}
-            />
-          )}
+          renderItem={renderItem}
+          getItemLayout={getItemLayout}
+          initialNumToRender={8}
+          maxToRenderPerBatch={8}
+          windowSize={5}
+          removeClippedSubviews={true}
           contentContainerStyle={styles.listContent}
         />
       )}

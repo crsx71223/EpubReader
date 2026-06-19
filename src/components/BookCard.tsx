@@ -1,6 +1,7 @@
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
+import { memo } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import {
   BorderRadius,
@@ -15,7 +16,7 @@ import SwipeDelete from "./SwipeDelete";
 
 type BookCardProps = Pick<Book, "title" | "author" | "coverUri" | "uri">;
 
-export default function BookCard({
+const BookCard = memo(function BookCard({
   title,
   author,
   coverUri,
@@ -83,7 +84,9 @@ export default function BookCard({
       </TouchableOpacity>
     </SwipeDelete>
   );
-}
+});
+
+export default BookCard;
 
 const styles = StyleSheet.create({
   card: {

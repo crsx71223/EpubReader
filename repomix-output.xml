@@ -77,6 +77,7 @@ src/components/BookCard.tsx
 src/components/ErrorBoundary.test.tsx
 src/components/ErrorBoundary.tsx
 src/components/ReaderHeader.tsx
+src/components/SwipeDelete.tsx
 src/constants/theme.ts
 src/global.css
 src/store/bookStore.ts
@@ -183,15 +184,6 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-</file>
-
-<file path="metro.config.js">
-const { getDefaultConfig } = require('expo/metro-config');
-
-const config = getDefaultConfig(__dirname);
-config.resolver.assetExts.push('html');
-
-module.exports = config;
 </file>
 
 <file path="README.md">
@@ -547,6 +539,102 @@ const styles = StyleSheet.create({
 });
 </file>
 
+<file path="src/components/SwipeDelete.tsx">
+import { Ionicons } from "@expo/vector-icons";
+import { Dimensions, StyleSheet, View } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
+import { scheduleOnRN } from "react-native-worklets";
+import { BorderRadius, Spacing } from "../constants/theme";
+
+interface SwipeDeleteProps {
+  children: React.ReactNode;
+  onDelete: () => void;
+  dangerColor: string;
+  iconColor: string;
+}
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const SWIPE_THRESHOLD = -SCREEN_WIDTH * 0.3;
+
+export default function SwipeDelete({
+  children,
+  onDelete,
+  dangerColor,
+  iconColor,
+}: SwipeDeleteProps) {
+  const translateX = useSharedValue<number>(0);
+  const itemHeight = useSharedValue<number>(120);
+  const marginVertical = useSharedValue<number>(Spacing.sm);
+  const opacity = useSharedValue<number>(1);
+
+  const panGesture = Gesture.Pan()
+    .onChange((event) => {
+      translateX.value = Math.min(0, event.translationX);
+    })
+    .onEnd(() => {
+      if (translateX.value < SWIPE_THRESHOLD) {
+        translateX.value = withTiming(-SCREEN_WIDTH, { duration: 200 }, () => {
+          itemHeight.value = withTiming(0);
+          marginVertical.value = withTiming(0);
+          opacity.value = withTiming(0, undefined, (isFinished) => {
+            if (isFinished) {
+              scheduleOnRN(onDelete);
+            }
+          });
+        });
+      } else {
+        translateX.value = withSpring(0);
+      }
+    });
+
+  const rCardStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+  }));
+
+  const rContainerStyle = useAnimatedStyle(() => ({
+    height: itemHeight.value === 120 ? "auto" : itemHeight.value,
+    marginBottom: marginVertical.value,
+    opacity: opacity.value,
+  }));
+
+  return (
+    <Animated.View style={[styles.container, rContainerStyle]}>
+      <View style={[styles.deleteBackground, { backgroundColor: dangerColor }]}>
+        <Ionicons name="trash-outline" size={28} color={iconColor} />
+      </View>
+
+      <GestureDetector gesture={panGesture}>
+        <Animated.View style={rCardStyle}>{children}</Animated.View>
+      </GestureDetector>
+    </Animated.View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    width: "100%",
+  },
+  deleteBackground: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    justifyContent: "center",
+    alignItems: "flex-end",
+    paddingRight: Spacing.xl,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.sm,
+  },
+});
+</file>
+
 <file path="src/global.css">
 :root {
   --font-display:
@@ -828,6 +916,15 @@ module.exports = defineConfig([
 ]);
 </file>
 
+<file path="metro.config.js">
+const { getDefaultConfig } = require("expo/metro-config");
+
+const config = getDefaultConfig(__dirname);
+config.resolver.assetExts.push("html");
+
+module.exports = config;
+</file>
+
 <file path=".gitignore">
 # Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
 
@@ -876,46 +973,6 @@ example
 # for repomix
 repomix-instruction.xml
 repomix-output.xml
-</file>
-
-<file path="src/store/bookStore.ts">
-import { create } from "zustand";
-import { getLibraryFiles } from "../utils/fileSystem";
-
-export interface Book {
-  id: string;
-  uri: string;
-  title: string;
-  author: string | null;
-  coverUri: string | null;
-}
-
-interface BookStore {
-  books: Book[];
-  isLoading: boolean;
-  currentBookUri: string | null;
-  loadBooks: () => Promise<void>;
-  setCurrentBook: (uri: string | null) => void;
-}
-
-export const useBookStore = create<BookStore>((set) => ({
-  books: [],
-  isLoading: false,
-  currentBookUri: null,
-
-  loadBooks: async () => {
-    set({ isLoading: true });
-    try {
-      const files = await getLibraryFiles();
-      set({ books: files, isLoading: false });
-    } catch (error) {
-      console.error("Failed to load books into store:", error);
-      set({ books: [], isLoading: false });
-    }
-  },
-
-  setCurrentBook: (uri) => set({ currentBookUri: uri }),
-}));
 </file>
 
 <file path="src/utils/fileSystem.ts">
@@ -979,17 +1036,6 @@ export async function getLibraryFiles() {
   } catch (error) {
     console.error("Failed to read library directory:", error);
     return [];
-  }
-}
-</file>
-
-<file path="tsconfig.json">
-{
-  "extends": "expo/tsconfig.base",
-  "compilerOptions": {
-    "strict": true,
-    "types": ["jest"],
-    "isolatedModules": true
   }
 }
 </file>
@@ -1143,6 +1189,73 @@ export const Layout = {
   BottomTabInset: Platform.select({ ios: 50, android: 80 }) ?? 0,
   MaxContentWidth: 800,
 };
+</file>
+
+<file path="src/store/bookStore.ts">
+import * as FileSystem from "expo-file-system/legacy";
+import { create } from "zustand";
+import { getLibraryFiles } from "../utils/fileSystem";
+
+export interface Book {
+  id: string;
+  uri: string;
+  title: string;
+  author: string | null;
+  coverUri: string | null;
+}
+
+interface BookStore {
+  books: Book[];
+  isLoading: boolean;
+  currentBookUri: string | null;
+  loadBooks: () => Promise<void>;
+  setCurrentBook: (uri: string | null) => void;
+  deleteBook: (uri: string) => Promise<void>;
+}
+
+export const useBookStore = create<BookStore>((set) => ({
+  books: [],
+  isLoading: false,
+  currentBookUri: null,
+
+  loadBooks: async () => {
+    set({ isLoading: true });
+    try {
+      const files = await getLibraryFiles();
+      set({ books: files, isLoading: false });
+    } catch (error) {
+      console.error("Failed to load books into store:", error);
+      set({ books: [], isLoading: false });
+    }
+  },
+
+  setCurrentBook: (uri) => set({ currentBookUri: uri }),
+
+  deleteBook: async (uri) => {
+    try {
+      await FileSystem.deleteAsync(uri, { idempotent: true });
+
+      set((state) => ({
+        books: state.books.filter((book) => book.uri !== uri),
+        currentBookUri:
+          state.currentBookUri === uri ? null : state.currentBookUri,
+      }));
+    } catch (error) {
+      console.error("Failed to delete book:", error);
+    }
+  },
+}));
+</file>
+
+<file path="tsconfig.json">
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "types": ["jest"],
+    "isolatedModules": true
+  }
+}
 </file>
 
 <file path="app.json">
@@ -1313,111 +1426,6 @@ export const Layout = {
 </html>
 </file>
 
-<file path="src/components/BookCard.tsx">
-import * as Haptics from "expo-haptics";
-import { Image } from "expo-image";
-import { useRouter } from "expo-router";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import {
-  BorderRadius,
-  Colors,
-  Shadows,
-  Spacing,
-  Typography,
-} from "../constants/theme";
-import { Book, useBookStore } from "../store/bookStore";
-import { useSettingsStore } from "../store/settingsStore";
-
-type BookCardProps = Pick<Book, "title" | "author" | "coverUri" | "uri">;
-
-export default function BookCard({
-  title,
-  author,
-  coverUri,
-  uri,
-}: BookCardProps) {
-  const router = useRouter();
-  const setCurrentBook = useBookStore((state) => state.setCurrentBook);
-  const { isDarkMode } = useSettingsStore();
-
-  const theme = isDarkMode ? Colors.dark : Colors.light;
-  const shadow = isDarkMode ? Shadows.dark.sm : Shadows.light.sm;
-
-  const handlePress = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setCurrentBook(uri);
-    router.push("/reader");
-  };
-
-  return (
-    <TouchableOpacity
-      style={[styles.card, { backgroundColor: theme.surface }, shadow]}
-      onPress={handlePress}
-      activeOpacity={0.7}
-    >
-      {coverUri ? (
-        <Image
-          source={{ uri: coverUri }}
-          style={[styles.cover, { backgroundColor: theme.border }]}
-          contentFit="cover"
-        />
-      ) : (
-        <View
-          style={[
-            styles.coverPlaceholder,
-            { backgroundColor: theme.background, borderColor: theme.border },
-          ]}
-        >
-          <Text style={styles.placeholderIcon}>📖</Text>
-        </View>
-      )}
-
-      <View style={styles.info}>
-        <Text style={[styles.title, { color: theme.text }]} numberOfLines={3}>
-          {title}
-        </Text>
-        {author && (
-          <Text
-            style={[styles.author, { color: theme.textSecondary }]}
-            numberOfLines={1}
-          >
-            {author}
-          </Text>
-        )}
-      </View>
-    </TouchableOpacity>
-  );
-}
-
-const styles = StyleSheet.create({
-  card: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderRadius: BorderRadius.md,
-    marginBottom: Spacing.sm,
-    padding: Spacing.md,
-    gap: Spacing.md,
-  },
-  cover: { width: 60, height: 88, borderRadius: BorderRadius.sm },
-  coverPlaceholder: {
-    width: 60,
-    height: 88,
-    borderRadius: BorderRadius.sm,
-    borderWidth: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  placeholderIcon: { fontSize: Typography.sizes.xxl },
-  info: { flex: 1, gap: Spacing.xs },
-  title: {
-    fontSize: Typography.sizes.md,
-    fontWeight: Typography.weights.medium,
-    lineHeight: Typography.lineHeights.md,
-  },
-  author: { fontSize: Typography.sizes.sm },
-});
-</file>
-
 <file path="src/app/settings.tsx">
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
@@ -1565,47 +1573,120 @@ const styles = StyleSheet.create({
 });
 </file>
 
-<file path="src/app/_layout.tsx">
-import { Stack } from "expo-router";
-import ErrorBoundary from "../components/ErrorBoundary";
-import { Colors } from "../constants/theme";
+<file path="src/components/BookCard.tsx">
+import * as Haptics from "expo-haptics";
+import { Image } from "expo-image";
+import { useRouter } from "expo-router";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  BorderRadius,
+  Colors,
+  Shadows,
+  Spacing,
+  Typography,
+} from "../constants/theme";
+import { Book, useBookStore } from "../store/bookStore";
 import { useSettingsStore } from "../store/settingsStore";
+import SwipeDelete from "./SwipeDelete";
 
-export default function RootLayout() {
+type BookCardProps = Pick<Book, "title" | "author" | "coverUri" | "uri">;
+
+export default function BookCard({
+  title,
+  author,
+  coverUri,
+  uri,
+}: BookCardProps) {
+  const router = useRouter();
+  const { setCurrentBook, deleteBook } = useBookStore();
   const { isDarkMode } = useSettingsStore();
+
   const theme = isDarkMode ? Colors.dark : Colors.light;
+  const shadow = isDarkMode ? Shadows.dark.sm : Shadows.light.sm;
+
+  const handleDelete = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    deleteBook(uri);
+  };
+
+  const handlePress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setCurrentBook(uri);
+    router.push("/reader");
+  };
 
   return (
-    <ErrorBoundary>
-      <Stack
-        screenOptions={{
-          headerStyle: { backgroundColor: theme.background },
-          headerTintColor: theme.text,
-          headerShadowVisible: false,
-        }}
+    <SwipeDelete
+      onDelete={handleDelete}
+      dangerColor={theme.danger}
+      iconColor={theme.textInverse}
+    >
+      <TouchableOpacity
+        style={[styles.card, { backgroundColor: theme.surface }, shadow]}
+        onPress={handlePress}
+        activeOpacity={1}
       >
-        <Stack.Screen
-          name="index"
-          options={{ headerShown: false, animation: "none" }}
-        />
+        {coverUri ? (
+          <Image
+            source={{ uri: coverUri }}
+            style={[styles.cover, { backgroundColor: theme.border }]}
+            contentFit="cover"
+          />
+        ) : (
+          <View
+            style={[
+              styles.coverPlaceholder,
+              { backgroundColor: theme.background, borderColor: theme.border },
+            ]}
+          >
+            <Text style={styles.placeholderIcon}>📖</Text>
+          </View>
+        )}
 
-        <Stack.Screen
-          name="reader"
-          options={{ title: "Reader", animation: "none" }}
-        />
-
-        <Stack.Screen
-          name="settings"
-          options={{
-            presentation: "transparentModal",
-            animation: "fade",
-            headerShown: false,
-          }}
-        />
-      </Stack>
-    </ErrorBoundary>
+        <View style={styles.info}>
+          <Text style={[styles.title, { color: theme.text }]} numberOfLines={3}>
+            {title}
+          </Text>
+          {author && (
+            <Text
+              style={[styles.author, { color: theme.textSecondary }]}
+              numberOfLines={1}
+            >
+              {author}
+            </Text>
+          )}
+        </View>
+      </TouchableOpacity>
+    </SwipeDelete>
   );
 }
+
+const styles = StyleSheet.create({
+  card: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    gap: Spacing.md,
+  },
+  cover: { width: 60, height: 88, borderRadius: BorderRadius.sm },
+  coverPlaceholder: {
+    width: 60,
+    height: 88,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  placeholderIcon: { fontSize: Typography.sizes.xxl },
+  info: { flex: 1, gap: Spacing.xs },
+  title: {
+    fontSize: Typography.sizes.md,
+    fontWeight: Typography.weights.medium,
+    lineHeight: Typography.lineHeights.md,
+  },
+  author: { fontSize: Typography.sizes.sm },
+});
 </file>
 
 <file path="src/app/index.tsx">
@@ -1822,6 +1903,52 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.md,
   },
 });
+</file>
+
+<file path="src/app/_layout.tsx">
+import { Stack } from "expo-router";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import ErrorBoundary from "../components/ErrorBoundary";
+import { Colors } from "../constants/theme";
+import { useSettingsStore } from "../store/settingsStore";
+
+export default function RootLayout() {
+  const { isDarkMode } = useSettingsStore();
+  const theme = isDarkMode ? Colors.dark : Colors.light;
+
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ErrorBoundary>
+        <Stack
+          screenOptions={{
+            headerStyle: { backgroundColor: theme.background },
+            headerTintColor: theme.text,
+            headerShadowVisible: false,
+          }}
+        >
+          <Stack.Screen
+            name="index"
+            options={{ headerShown: false, animation: "none" }}
+          />
+
+          <Stack.Screen
+            name="reader"
+            options={{ title: "Reader", animation: "none" }}
+          />
+
+          <Stack.Screen
+            name="settings"
+            options={{
+              presentation: "transparentModal",
+              animation: "fade",
+              headerShown: false,
+            }}
+          />
+        </Stack>
+      </ErrorBoundary>
+    </GestureHandlerRootView>
+  );
+}
 </file>
 
 <file path="package.json">
